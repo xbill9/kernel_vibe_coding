@@ -1,0 +1,15 @@
+The Vibe Coding Kernel-pocalypse Is Here, and It Is a Good Thing
+
+A step by step guide to mainline Linux kernel development with a coding agent in a closed loop: the kernel's own AGENTS.md, a few markdown runbooks, a build and install script, and the boot and system logs fed back to the agent after every change. The same loop runs on an Intel laptop, two Windows-on-ARM laptops and a Pixel 3a.
+
+What is in it:
+
+- 🟢 Mainline 7.4-rc2 built and installed on a Yoga 9i, with stripped modules: an 88MB initrd against 641MB unstripped.
+- 🟢 The new build became the GRUB default from the script, checked against grub.cfg.
+- 🟢 A boot and log check by the agent: taint 0, no oops or warnings, 58 of 62 kernel error lines from the BIOS, clean suspend and resume.
+- 🟢 A 7.4-rc2 sound regression fixed locally with the same line as the upstream fix, d00ba321499c, which arrived the next day.
+
+dev.to: https://dev.to/xbill/the-vibe-coding-kernel-pocalypse-is-here-and-it-is-a-good-thing-3d83
+Medium: https://xbill999.medium.com/the-vibe-coding-kernel-pocalypse-is-here-and-it-is-a-good-thing-594d0f4163ef
+Substack: https://xbill9.substack.com/p/the-vibe-coding-kernel-pocalypse
+GitHub: https://github.com/xbill9/kernel_vibe_coding
