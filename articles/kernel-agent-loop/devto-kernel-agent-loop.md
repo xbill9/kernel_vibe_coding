@@ -4,7 +4,7 @@ published: false
 series: Linux
 description: "A step by step guide to mainline Linux kernel development with a coding agent in a closed loop: the kernel's own AGENTS.md, a few markdown runbooks, a build and install script, and the boot and system logs fed back to the agent after every change. The same loop runs on an Intel laptop, two Windows-on-ARM laptops and a Pixel 3a."
 tags: linux, kernel, ai, claude
-cover_image: https://raw.githubusercontent.com/xbill9/kernel_vibe_coding/main/articles/kernel-agent-loop/devto-cover.5350f191.jpg
+cover_image: https://raw.githubusercontent.com/xbill9/kernel_vibe_coding/main/articles/kernel-agent-loop/devto-cover.313239af.jpg
 ---
 
 This article provides a step by step guide to Linux kernel development with a coding agent working in a closed loop. Mainline's own `AGENTS.md`, a few markdown runbooks, one build and install script and the machine's boot logs give the agent everything it needs to change a kernel, run it and check the result.
@@ -318,4 +318,4 @@ The strategy for kernel development with a coding agent was validated with an in
 - Debian on the Galaxy Book Go: [linux-arm-adventures](https://github.com/xbill9/linux-arm-adventures/tree/main/articles/galaxy-book-go-debian)
 - Debian on the Yoga C630: [linux-arm-adventures](https://github.com/xbill9/linux-arm-adventures/tree/main/articles/c630-debian)
 - Pixel 3a eBPF backport: [android_kernel_google_msm-4.9](https://github.com/xbill9/android_kernel_google_msm-4.9/tree/main/backport-tools)
-- Cover: Tux by Larry Ewing (lewing@isc.tamu.edu), drawn with The GIMP: [Tux.svg on Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Tux.svg)
+- Cover: drawn with Nano Banana 2 Lite from Tux by Larry Ewing (lewing@isc.tamu.edu) and The GIMP: [Tux.svg on Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Tux.svg)
