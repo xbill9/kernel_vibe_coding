@@ -34,28 +34,27 @@ That is the kernel-pocalypse: a project that runs on email and Signed-off-by lin
 The loop is the agent's work cycle. Each pass starts from written instructions and ends with evidence from a running kernel:
 
 ```
-  ┌───────────────────────────────────────────────────────────┐
-  │                                                           │
-  ▼                                                           │
- read the scaffolding   AGENTS.md, CLAUDE.md, runbooks, memory  │
-  │                                                           │
-  ▼                                                           │
- change the tree        a fix, a config option, a device tree   │
-  │                                                           │
-  ▼                                                           │
- build                  kernel-build: olddefconfig, make -j     │
-  │                                                           │
-  ▼                                                           │
- install                stripped modules, initramfs, GRUB       │
-  │                                                           │
-  ▼                                                           │
- boot                   default entry, or a one-time entry      │
-  │                                                           │
-  ▼                                                           │
- read the logs          dmesg, journalctl, taint, failed units  │
-  │                                                           │
-  ▼                                                           │
- write down the result  memory file or runbook, then commit  ───┘
+ ┌──────────────────────────────────────────────────────────────┐
+ ▼                                                              │
+read the scaffolding   AGENTS.md, CLAUDE.md, runbooks, memory   │
+ │                                                              │
+ ▼                                                              │
+change the tree        a fix, a config option, a device tree    │
+ │                                                              │
+ ▼                                                              │
+build                  kernel-build: olddefconfig, make -j      │
+ │                                                              │
+ ▼                                                              │
+install                stripped modules, initramfs, GRUB        │
+ │                                                              │
+ ▼                                                              │
+boot                   default entry, or a one-time entry       │
+ │                                                              │
+ ▼                                                              │
+read the logs          dmesg, journalctl, taint, failed units   │
+ │                                                              │
+ ▼                                                              │
+write down the result  memory file or runbook, then commit ─────┘
 ```
 
 The last step is what closes the loop. A finding that is written into a file the agent loads becomes an instruction on the next pass, so the same mistake is made once.

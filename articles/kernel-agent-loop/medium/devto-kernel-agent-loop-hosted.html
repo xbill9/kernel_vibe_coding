@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.11" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>The Vibe Coding Kernel-pocalypse Is Here, and It Is a Good Thing</title>
+  <meta name="description" content="A step by step guide to mainline Linux kernel development with a coding agent in a closed loop: the kernel&#x27;s own AGENTS.md, a few markdown runbooks, a build and install script, and the boot and system logs fed back to the agent after every change. The same loop runs on an Intel laptop, two Windows-on-ARM laptops and a Pixel 3a." />
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <style>
+    body{font-family:-apple-system,'Segoe UI',Roboto,'Liberation Sans',Arial,sans-serif;
+         font-size:18px;line-height:1.58;max-width:42em;color:#242424;}
+    h1,h2,h3,h4{font-weight:700;line-height:1.25;margin-top:1.8em;}
+    h4{font-size:1.25em;}
+    img{max-width:100%;height:auto;display:block;margin:1.6em 0;}
+    pre{background:#f7f7f7;border:1px solid #e6e6e6;border-radius:4px;
+        padding:12px 14px;overflow-x:auto;font-size:14px;line-height:1.45;}
+    code{font-family:'Liberation Mono',Menlo,Consolas,monospace;}
+    :not(pre)>code{background:#f2f2f2;padding:1px 5px;border-radius:3px;font-size:.9em;}
+    blockquote{border-left:3px solid #ddd;margin-left:0;padding-left:1em;color:#555;}
+    hr{border:0;border-top:1px solid #e6e6e6;margin:2.4em 0;}
+  </style>
+</head>
+<body>
+<p>This article provides a step by step guide to Linux kernel
+development with a coding agent working in a closed loop. Mainline's own
+<code>AGENTS.md</code>, a few markdown runbooks, one build and install
+script and the machine's boot logs give the agent everything it needs to
+change a kernel, run it and check the result.</p>
+<figure><img src="https://raw.githubusercontent.com/xbill9/kernel_vibe_coding/main/articles/kernel-agent-loop/medium/img/devto-cover.313239af.jpg" alt="The Vibe Coding Kernel-pocalypse Is Here, and It Is a Good Thing" /></figure>
+<p><a
+href="https://github.com/xbill9/kernel_vibe_coding">https://github.com/xbill9/kernel_vibe_coding</a></p>
+<p><strong>Agents write kernel code now, and the kernel community has
+written down how they should do it. With the loop in place, the agent
+builds, installs, boots and reads its own logs, and one person with a
+laptop does work that used to need a kernel developer at each
+step.</strong></p>
+<hr />
+<h4 id="what-is-the-kernel-pocalypse">What Is the Kernel-pocalypse?</h4>
+<p>Coding agents are in the kernel tree. Mainline has three documents
+written for them, all from the last year:</p>
+<p><img src="https://raw.githubusercontent.com/xbill9/kernel_vibe_coding/main/articles/kernel-agent-loop/medium/img/devto-kernel-agent-loop-table-1.png"
+alt="Table: Commit, Release, What it added" /></p>
+<p>That is the kernel-pocalypse: a project that runs on email and
+Signed-off-by lines has a file in its root addressed to language models.
+The documents treat agents as contributors with rules, and the rules
+make the agent useful.</p>
+<hr />
+<h4 id="what-is-the-agent-loop">What Is the Agent Loop?</h4>
+<p>The loop is the agent's work cycle. Each pass starts from written
+instructions and ends with evidence from a running kernel:</p>
+<p><img src="https://raw.githubusercontent.com/xbill9/kernel_vibe_coding/main/articles/kernel-agent-loop/medium/img/devto-kernel-agent-loop-diagram-1.png"
+alt="diagram" /></p>
+<p>The last step is what closes the loop. A finding that is written into
+a file the agent loads becomes an instruction on the next pass, so the
+same mistake is made once.</p>
+<hr />
+<h4 id="at-this-point-you-should-have">At This Point You Should
+Have…</h4>
+<ul>
+<li>A Linux machine you can reboot, with GRUB and a serial or SSH way
+back in if a kernel fails.</li>
+<li>A mainline clone in <code>~/linux</code>.</li>
+<li>A coding agent that loads <code>AGENTS.md</code> and
+<code>CLAUDE.md</code> and can run shell commands. This article uses
+Claude Code 2.1.325.</li>
+<li><code>sudo</code> for the agent's install steps, approved command by
+command.</li>
+</ul>
+<p>The Intel machine in this article is a Lenovo Yoga 9i
+(<code>Yoga 9 14IRP8</code>, 13th Gen Intel Core i7-1360P, 16 threads)
+running Debian with GCC 16.2.0.</p>
+<hr />
+<h4 id="step-1--read-the-kernels-own-scaffolding">Step 1 — Read the
+Kernel's Own Scaffolding</h4>
+<p>Mainline's root has an <code>AGENTS.md</code>, the file most coding
+agents load from a repository root on their own:</p>
+<pre><code>$ ls -l AGENTS.md
+lrwxrwxrwx 1 xbill xbill 6 Nov  5 08:55 AGENTS.md -&gt; README</code></pre>
+<p>It is a symlink to <code>README</code>, whose "AI Coding Assistant"
+section says an agent "MUST read and follow"
+<code>Documentation/process/coding-assistants.rst</code>. The commit
+that added the symlink gives the reason: agents often skip
+<code>README</code>, and an agent asked to commit a Makefile change
+without <code>AGENTS.md</code> "added a Signed-off-by for the user on
+its own".</p>
+<p><code>coding-assistants.rst</code> is 77 lines. The rules that shape
+the loop:</p>
+<ul>
+<li><strong>Agents must not add <code>Signed-off-by</code>.</strong>
+Only a human can certify the Developer Certificate of Origin, after
+reviewing the change.</li>
+<li><strong>Reproduce before fixing.</strong> A bug that is not trivial
+needs a reproducer, or it stops there.</li>
+<li><strong>Build and verify.</strong> The fix must not add build
+warnings and must pass <code>checkpatch.pl</code>.</li>
+<li><strong>Say what was not done.</strong> If the fix was not built or
+tested, the report says so.</li>
+<li><strong>The agent never sends anything itself.</strong> The human
+reviews and submits.</li>
+</ul>
+<p>These rules describe a loop. Build, verify, and report what could not
+be verified are the steps below.</p>
+<hr />
+<h4 id="step-2--add-your-own-scaffolding">Step 2 — Add Your Own
+Scaffolding</h4>
+<p>The kernel's documents cover the process. Your machines need their
+own rules, and they go in markdown files the agent loads in layers:</p>
+<p><img src="https://raw.githubusercontent.com/xbill9/kernel_vibe_coding/main/articles/kernel-agent-loop/medium/img/devto-kernel-agent-loop-table-2.png"
+alt="Table: File, Scope, Example rule" /></p>
+<p>The ARM rules are the strictest because a bad boot on those laptops
+costs a rescue stick. The first one reads:</p>
+<pre><code>## Don&#39;t break the boot
+ 
+- **Never unhold `grub*`/`shim*`** (`apt-mark hold`). GRUB 2.14 from sid blacks out every kernel. Only GRUB 2.12 from the stick works.</code></pre>
+<p>The memory layer is written by the agent. Each file holds one fact,
+why it matters and how to apply it, and an index loads with every
+session:</p>
+<pre><code>- [Kernel install sets GRUB default](kernel-install-set-default.md) — new build becomes the boot default
+- [Kernel install + NVIDIA DKMS](kernel-install-nvidia-dkms.md) — `make install` breaks DKMS; manual clean-env steps; `dkms build --force` before reinstall
+- [7.4 ASoC rtd flex fix](kernel-7.4-soc-rtd-flex-fix.md) — no-mic fix now upstream (d00ba321499c); local edit dropped
+- [Strip modules on kernel install](kernel-install-strip-modules.md) — use INSTALL_MOD_STRIP=1 -j$(nproc) or initrd hits 640MB</code></pre>
+<hr />
+<h4 id="mag_right-tip-promote-a-memory-into-the-repo">🔎 Tip: Promote a
+Memory Into the Repo</h4>
+<p>A memory file lives on one machine. Once a fact holds on a second
+machine, copy it into the repo's runbook, where every machine and every
+reader gets it. <code>intel/docs/KERNEL-INSTALL.md</code> is four memory
+files rewritten as one install guide.</p>
+<hr />
+<h4 id="step-3--build">Step 3 — Build</h4>
+<p><code>intel/scripts/kernel-build</code> pulls the tree, starts from
+the running kernel's config on a fresh clone, and builds with every
+core:</p>
+<pre><code>$ kernel-build --no-install</code></pre>
+<p>It prints the tree it builds from, <code>git describe --tags</code>,
+which on the Yoga 9i is now:</p>
+<pre><code>$ git -C ~/linux describe --tags
+v7.4-rc2-716-g23c62304dde2</code></pre>
+<p>On a fresh tree it copies <code>/boot/config-$(uname -r)</code>,
+blanks Debian's signing keys and sets
+<code>LOCALVERSION=-mainline</code>. The working config has
+<code>CONFIG_RUST=y</code> and <code>CONFIG_DEBUG_INFO_BTF=y</code>. A
+full Debian package build of 7.4-rc1 on the Yoga 9i took 34 minutes 28
+seconds of wall time.</p>
+<hr />
+<h4 id="step-4--install">Step 4 — Install</h4>
+<p>The install step is where most of the runbook's rules live, because a
+kernel that builds can still fail to boot or bloat the boot
+partition.</p>
+<p><strong>Strip the modules.</strong> With debug info on, a plain
+<code>modules_install</code> put full DWARF in every module:
+<code>/lib/modules/&lt;release&gt;</code> was 1.3G and the initrd 641MB,
+measured 2026-11-14. With <code>INSTALL_MOD_STRIP=1</code> the BTF
+sections stay and the size drops:</p>
+<pre><code>$ ls -l /boot/initrd.img-7.4.0-rc2-mainline+
+-rw-r--r-- 1 root root 88367505 Nov 15 09:12 /boot/initrd.img-7.4.0-rc2-mainline+
+$ du -sh /lib/modules/7.4.0-rc2-mainline+
+118M    /lib/modules/7.4.0-rc2-mainline+</code></pre>
+<p><strong>Make the new build the default.</strong>
+<code>GRUB_DEFAULT</code> on this laptop names an entry by release, so
+<code>make install</code> alone leaves the old kernel booting:</p>
+<pre><code>$ grep ^GRUB_DEFAULT= /etc/default/grub
+GRUB_DEFAULT=&quot;gnulinux-advanced-c4ade253-cb80-4f6c-a4b2-0a25e3581117&gt;gnulinux-7.4.0-rc2-mainline+-advanced-c4ade253-cb80-4f6c-a4b2-0a25e3581117&quot;</code></pre>
+<p><code>kernel-build</code> swaps the release in that id, runs
+<code>update-grub</code>, and restores a dated backup if the new id is
+missing from <code>grub.cfg</code>. A numeric or <code>saved</code>
+default is left alone. Jobs default to <code>nproc</code>, so the same
+script fits a 16-thread laptop and a 12-thread desktop.</p>
+<p><strong>NVIDIA machines install by hand.</strong>
+<code>make install</code> exports <code>KERNELRELEASE</code>, the DKMS
+hook inherits it, and the NVIDIA build fails on an empty
+<code>src</code>. The runbook's Step 4 runs <code>dkms</code>,
+<code>update-initramfs</code> and <code>update-grub</code> in a clean
+<code>env -i</code> instead.</p>
+<hr />
+<h4 id="step-5--boot-and-feed-the-logs-back">Step 5 — Boot and Feed the
+Logs Back</h4>
+<p>After the reboot the agent gets one prompt: "check boot kernel and
+system logs for any issues". It reads the kernel version, the taint
+flags, the error log, kernel warnings and failed units, then sorts what
+it found:</p>
+<pre><code>$ uname -r -v
+7.4.0-rc2-mainline+ #15 SMP PREEMPT_DYNAMIC Sat Nov 14 15:54:28 EST 2026
+$ cat /proc/sys/kernel/tainted
+0
+$ journalctl -k -b -p err --no-pager | wc -l
+62
+$ journalctl -k -b -p err --no-pager | grep -c &quot;ACPI.*AE_ALREADY_EXISTS&quot;
+58
+$ journalctl -k -b --no-pager | grep -cE &quot;Oops|BUG:|WARNING:|Call Trace|soft lockup|rcu.*stall|hung task&quot;
+0
+$ journalctl -b --no-pager | grep -E &quot;PM: suspend (entry|exit)&quot;
+Nov 14 18:13:52 yoga9i kernel: PM: suspend entry (s2idle)
+Nov 15 09:10:41 yoga9i kernel: PM: suspend exit
+$ arecord -l | grep DMIC
+card 0: sofhdadsp [sof-hda-dsp], device 6: DMIC (*) []
+card 0: sofhdadsp [sof-hda-dsp], device 7: DMIC16kHz (*) []</code></pre>
+<p>Of 62 kernel error lines, 58 are the BIOS defining the same USB port
+objects twice. The rest are a Wacom digitizer quirk at start-up and a PC
+speaker driver registered twice. No oops, no warnings, a clean suspend
+and resume, and both microphones present. The agent's report put each
+line in one of three groups: a real problem, harmless firmware noise, or
+userspace.</p>
+<p>The counts come from <code>grep -c</code> and <code>wc -l</code>. The
+agent reads the totals the shell computed, which keeps a long log from
+turning into a miscount.</p>
+<hr />
+<h4 id="step-6--when-the-logs-show-a-real-bug">Step 6 — When the Logs
+Show a Real Bug</h4>
+<p>The microphone check above has a history. 7.4-rc2 brought commit
+<code>4dd10fbbeb9c</code>, a tree-wide conversion of the
+<code>devm_kmalloc()</code> family to typed allocators. With GCC 16 and
+<code>__builtin_counted_by_ref()</code>, the new
+<code>devm_kzalloc_flex()</code> in <code>soc_new_pcm_runtime()</code>
+presets <code>rtd-&gt;num_components</code> to the capacity. The sound
+card then starts no components, and the log shows:</p>
+<pre><code>fail to add hda routes, ret -19</code></pre>
+<p>The loop ran on that log line. The agent traced it to the allocation,
+added <code>rtd-&gt;num_components = 0;</code> after it, rebuilt only
+<code>snd-soc-core.ko</code>, reloaded the sound modules, and checked
+the card, both DMIC devices and a live mic signal, all on 2026-11-13. It
+wrote the fix and its evidence into a memory file.</p>
+<p>Mainline already had the same line on its way.
+<code>d00ba321499c</code>, "ASoC: soc-core: reset rtd-&gt;num_components
+after allocation", was written on 2026-11-09 and arrived with the next
+<code>git pull</code>, on 2026-11-14:</p>
+<pre><code>+   /*
++    * devm_kzalloc_flex() presets the __counted_by() counter to the
++    * allocated size when the compiler has __builtin_counted_by_ref(),
++    * but snd_soc_rtd_add_component() expects it to start from zero.
++    */
++   rtd-&gt;num_components = 0;</code></pre>
+<p>The local edit was dropped on <code>git pull</code>, and the memory
+file was updated to say any tree containing <code>d00ba321499c</code>
+needs no patch. Upstream's commit came from a Colibri iMX7D board with a
+different codec: the same bug, found and fixed independently on a second
+machine.</p>
+<hr />
+<h4 id="step-7--write-down-what-was-learned">Step 7 — Write Down What
+Was Learned</h4>
+<p>Every pass ends with a file change. The four kernel memory files on
+the Yoga 9i each record a date, a measurement and a "How to apply"
+line:</p>
+<p><img src="https://raw.githubusercontent.com/xbill9/kernel_vibe_coding/main/articles/kernel-agent-loop/medium/img/devto-kernel-agent-loop-table-3.png"
+alt="Table: Memory, What it changed in the loop" /></p>
+<p>The first two are now code in <code>kernel-build</code>. A rule that
+lives in a script runs every time, on every machine, whether or not the
+agent reads the note.</p>
+<hr />
+<h4 id="step-8--the-same-loop-on-arm-and-android">Step 8 — The Same Loop
+on ARM and Android</h4>
+<p>The repo carries the loop to three more machines, where the feedback
+is harder to get.</p>
+<p><img src="https://raw.githubusercontent.com/xbill9/kernel_vibe_coding/main/articles/kernel-agent-loop/medium/img/devto-kernel-agent-loop-table-4.png"
+alt="Table: Machine, Kernel work, Where the loop&#39;s rules live" /></p>
+<p>On the ARM laptops the kernel knows only what the device tree tells
+it, so each guess is a reboot. The loop changes in two places. Every
+risky boot is a one-time entry, so a black screen falls back on the next
+power cycle, and <code>gbgo-boot-verify</code> checks every file the
+boot reads before the reboot. The bring-up of each laptop is in its own
+article, linked below.</p>
+<p>On the Pixel the feedback comes from upstream instead of
+<code>dmesg</code>. <code>missing_fixes.py</code> finds later upstream
+fixes for the backported code, and <code>verifier-fixes.tsv</code>
+records what was done with each one.</p>
+<hr />
+<h4 id="mag_right-tip-make-every-risky-boot-a-one-time-boot">🔎 Tip:
+Make Every Risky Boot a One-Time Boot</h4>
+<p><code>grub-reboot &lt;entry&gt;</code> boots an entry once and
+returns to the default after. The agent can try a new kernel, a new
+device tree or new kernel options, and a hang costs one power cycle.
+Combine it with the "reboot only after the user confirms" rule, and the
+human stays in charge of the one step that can lose the machine.</p>
+<hr />
+<h4 id="compare-and-contrast">Compare and Contrast</h4>
+<p><img src="https://raw.githubusercontent.com/xbill9/kernel_vibe_coding/main/articles/kernel-agent-loop/medium/img/devto-kernel-agent-loop-table-5.png"
+alt="Table: Prompt only, Agent loop" /></p>
+<hr />
+<h4 id="so-is-the-kernel-pocalypse-a-bad-thing">So, Is the
+Kernel-pocalypse a Bad Thing?</h4>
+<p>No. The loop lowers the bar to useful kernel work. Building mainline,
+installing it safely, reading a boot log, tracing an error to a commit
+and testing a one-line fix used to need a kernel developer at each step.
+With the scaffolding in place, one person directs the work and reviews
+the result, and the agent does the build, install and log reading.</p>
+<p>The kernel's own rules keep that safe: reproduce first, build without
+warnings, say what was not tested, and leave the sign-off and the email
+to a human. A loop that follows them produces evidence a maintainer can
+check.</p>
+<hr />
+<h4 id="summary">Summary</h4>
+<p>The goal of this article was to show a coding agent doing mainline
+kernel work in a closed loop, on more than one platform. The key to the
+solution was the scaffolding: mainline's <code>AGENTS.md</code> and
+<code>coding-assistants.rst</code> for the process, a few markdown
+runbooks and memory files for each machine, and one script for build and
+install. The results were:</p>
+<ul>
+<li>🟢 Mainline 7.4-rc2 built and installed on a Yoga 9i, with stripped
+modules: an 88MB initrd against 641MB unstripped.</li>
+<li>🟢 The new build became the GRUB default from the script, checked
+against <code>grub.cfg</code>.</li>
+<li>🟢 A boot and log check by the agent: taint 0, no oops or warnings,
+58 of 62 kernel error lines from the BIOS, clean suspend and
+resume.</li>
+<li>🟢 A 7.4-rc2 sound regression fixed locally with the same line as
+the upstream fix, <code>d00ba321499c</code>, which arrived the next
+day.</li>
+<li>🟢 One repo for the loop on Intel, two Windows-on-ARM laptops and a
+Pixel 3a.</li>
+<li>⚠️ NVIDIA machines still need the hand install in a clean
+environment.</li>
+<li>⚠️ The agent never signs off or submits. A human reviews every
+change, as the kernel requires.</li>
+</ul>
+<p>Scope: one Lenovo Yoga 9i (i7-1360P) on Debian with GCC 16.2.0,
+mainline 7.4-rc2, Claude Code 2.1.325, boot and logs checked on
+2026-11-15. The ARM and Android work is from the same repo, measured on
+those machines and written up in the articles below.</p>
+<p>The strategy for kernel development with a coding agent was validated
+with an incremental step by step approach.</p>
+<hr />
+<h4 id="references">References</h4>
+<ul>
+<li>Repository: <a
+href="https://github.com/xbill9/kernel_vibe_coding">https://github.com/xbill9/kernel_vibe_coding</a></li>
+<li>Install runbook: <a
+href="https://github.com/xbill9/kernel_vibe_coding/blob/main/intel/docs/KERNEL-INSTALL.md">intel/docs/KERNEL-INSTALL.md</a></li>
+<li>AI Coding Assistants: <a
+href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/process/coding-assistants.rst">Documentation/process/coding-assistants.rst</a></li>
+<li>Tool-generated content: <a
+href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/process/generated-content.rst">Documentation/process/generated-content.rst</a></li>
+<li>The ASoC fix: <a
+href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=d00ba321499c">d00ba321499c</a></li>
+<li>Debian on the Galaxy Book Go: <a
+href="https://github.com/xbill9/linux-arm-adventures/tree/main/articles/galaxy-book-go-debian">linux-arm-adventures</a></li>
+<li>Debian on the Yoga C630: <a
+href="https://github.com/xbill9/linux-arm-adventures/tree/main/articles/c630-debian">linux-arm-adventures</a></li>
+<li>Pixel 3a eBPF backport: <a
+href="https://github.com/xbill9/android_kernel_google_msm-4.9/tree/main/backport-tools">android_kernel_google_msm-4.9</a></li>
+<li>Cover: drawn with Nano Banana 2 Lite from Tux by Larry Ewing (<a
+href="mailto:lewing@isc.tamu.edu">lewing@isc.tamu.edu</a>) and The GIMP:
+<a href="https://commons.wikimedia.org/wiki/File:Tux.svg">Tux.svg on
+Wikimedia Commons</a></li>
+</ul>
+</body>
+</html>
