@@ -49,9 +49,44 @@ make -j"$JOBS"
 release=$(make -s kernelrelease)
 echo "built $release in $(( $(date +%s) - start ))s"
 
+# Point a pinned GRUB_DEFAULT ("...gnulinux-<release>-advanced-<uuid>") at the
+# new release, so the build just installed is the one that boots. A numeric or
+# "saved" GRUB_DEFAULT is left alone.
+set_grub_default() {
+  local conf=/etc/default/grub cur new id backup tmp
+  cur=$(sed -n 's/^GRUB_DEFAULT=["'\'']\{0,1\}\([^"'\'']*\)["'\'']\{0,1\}$/\1/p' "$conf")
+  if [[ ! $cur =~ ^(.*gnulinux-)(.+)(-advanced-[0-9a-fA-F-]+)$ ]]; then
+    echo "GRUB_DEFAULT='$cur' is not pinned to a release; left as is"
+    return 0
+  fi
+  new="${BASH_REMATCH[1]}$release${BASH_REMATCH[3]}"
+  id=${new##*>}
+  if [[ $new == "$cur" ]]; then
+    echo "GRUB_DEFAULT already boots $release"
+    return 0
+  fi
+  backup="$conf.kernel-build-$(date +%Y%m%d-%H%M%S)"
+  tmp=$(mktemp)
+  awk -v v="$new" '/^GRUB_DEFAULT=/ { print "GRUB_DEFAULT=\"" v "\""; next } { print }' "$conf" >"$tmp"
+  sudo cp -p "$conf" "$backup"
+  sudo cp "$tmp" "$conf"
+  rm -f "$tmp"
+  sudo update-grub
+  if sudo grep -qF "'$id'" /boot/grub/grub.cfg; then
+    echo "GRUB_DEFAULT now boots $release (backup: $backup)"
+  else
+    echo "no GRUB entry '$id'; restoring $backup" >&2
+    sudo cp -p "$backup" "$conf"
+    sudo update-grub
+    return 1
+  fi
+}
+
 if (( INSTALL )); then
-  sudo make modules_install
+  # Stripped modules keep .BTF but drop DWARF: the initrd is ~90MB, not ~640MB.
+  sudo make -j"$JOBS" INSTALL_MOD_STRIP=1 modules_install
   sudo make install          # Debian installkernel: initramfs + update-grub
+  set_grub_default
   echo "installed $release"
   if (( REBOOT )); then
     sudo systemctl reboot

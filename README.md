@@ -12,7 +12,7 @@ Kernel scripts, tools and runbooks for every machine here, Intel and ARM, in one
 
 ```
 intel/
-  scripts/kernel-build      pull ~/linux, olddefconfig, build, install (--no-pull --no-install --reboot)
+  scripts/kernel-build      pull ~/linux, olddefconfig, build, stripped install, GRUB default (--no-pull --no-install --reboot)
   scripts/hw-update         Claude audit of missing drivers, firmware and hardware tools (-p: report only)
   docs/KERNEL-INSTALL.md    build -> stripped install -> GRUB default -> NVIDIA DKMS; known 7.4-rc2 issues
 arm/

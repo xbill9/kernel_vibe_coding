@@ -17,14 +17,14 @@ A fresh tree starts from `/boot/config-$(uname -r)`, with Debian's signing keys 
 #### Step 2 — Install with stripped modules
 
 ```sh
-sudo make -j16 INSTALL_MOD_STRIP=1 modules_install && sudo make install
+sudo make -j$(nproc) INSTALL_MOD_STRIP=1 modules_install && sudo make install
 ```
 
-With `CONFIG_DEBUG_INFO=y`, a plain `modules_install` puts full DWARF in every module: `/lib/modules/<rel>` was 1.3G and the initrd 641MB (measured 2026-11-14). With `INSTALL_MOD_STRIP=1` they were 118M and 88MB, and the `.BTF` sections are kept. The serial install took about 20 minutes, against 35 seconds with `-j16`.
+With `CONFIG_DEBUG_INFO=y`, a plain `modules_install` puts full DWARF in every module: `/lib/modules/<rel>` was 1.3G and the initrd 641MB (measured 2026-11-14). With `INSTALL_MOD_STRIP=1` they were 118M and 88MB, and the `.BTF` sections are kept. The serial install took about 20 minutes, against 35 seconds with `-j16` on the Yoga 9i. Use `-j$(nproc)` so the same command fits every machine.
 
 Check `/boot/initrd.img-<rel>` is about 90MB afterwards.
 
-⚠️ `scripts/kernel-build` runs a plain `sudo make modules_install`. Add `-j16 INSTALL_MOD_STRIP=1` before using it to install.
+🟢 `scripts/kernel-build` does this step with `-j$JOBS` (default `nproc`).
 
 ---
 
@@ -36,6 +36,8 @@ A build is meant to be run. `GRUB_DEFAULT` in `/etc/default/grub` is pinned to a
 2. Swap the release in the id for the new one.
 3. `sudo update-grub`.
 4. Confirm the id exists in `/boot/grub/grub.cfg`.
+
+🟢 `scripts/kernel-build` does this after `make install`: it swaps the release in a pinned id, keeps a dated backup of `/etc/default/grub`, and restores it if the new id is missing from `grub.cfg`. A numeric or `saved` `GRUB_DEFAULT` is left alone.
 
 On `gpu`, `GRUB_DEFAULT=0` and the newest kernel sorts first, so the new build is already the default. Confirm entry 0's `linux` line in `grub.cfg`.
 
