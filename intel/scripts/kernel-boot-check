@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# kernel-boot-check — after a reboot, confirm the running kernel is the build
+# kernel-build last installed, then print the boot health checks.
+#
+# Usage: kernel-boot-check
+#
+# If uname -v differs from the recorded build, it prints the mismatch and exits
+# 1 before running any other check: taint 0 and an empty error log say nothing
+# about a kernel other than the one under test.
+#
+# Exit: 0 running kernel is the installed build, 1 it is not, 2 no record.
+set -uo pipefail
+
+STATE_DIR=${XDG_STATE_HOME:-$HOME/.local/state}/kernel-build
+rec=$STATE_DIR/installed
+
+if [[ ! -r $rec ]]; then
+  echo "no install record at $rec; install with kernel-build first" >&2
+  exit 2
+fi
+RELEASE=$(sed -n 's/^RELEASE=//p' "$rec")
+UTS_VERSION=$(sed -n 's/^UTS_VERSION=//p' "$rec")
+BUILD_ID=$(sed -n 's/^BUILD_ID=//p' "$rec")
+SOURCE=$(sed -n 's/^SOURCE=//p' "$rec")
+DATE=$(sed -n 's/^DATE=//p' "$rec")
+
+running_r=$(uname -r) running_v=$(uname -v)
+if [[ $running_r != "$RELEASE" || $running_v != "$UTS_VERSION" ]]; then
+  echo "NOT THE INSTALLED BUILD — no results recorded."
+  echo "  running:   $running_r $running_v"
+  echo "  installed: $RELEASE $UTS_VERSION ($SOURCE, $DATE)"
+  echo "  booted:    $(uptime -s)"
+  echo "Reboot into build $BUILD_ID, then run this again."
+  exit 1
+fi
+
+echo "# running kernel is build $BUILD_ID ($SOURCE), installed $DATE"
+echo "# captured $(date -Iseconds) on $(hostname)"
+run() { echo "\$ $*"; bash -c "$*"; }
+run 'uname -r -v'
+run 'cat /proc/sys/kernel/tainted'
+run 'systemctl is-system-running'
+run 'journalctl -k -b -p err --no-pager | wc -l'
+run 'journalctl -k -b --no-pager | grep -cE "Oops|BUG:|WARNING:|Call Trace|soft lockup|rcu.*stall|hung task"'
+run 'journalctl -k -b -p err --no-pager | sed "s/^.*kernel: //" | sort | uniq -c | sort -rn'
+run 'systemctl --failed --no-legend'
+run 'systemctl --user --failed --no-legend'
+exit 0

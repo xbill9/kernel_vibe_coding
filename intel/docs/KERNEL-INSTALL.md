@@ -68,6 +68,24 @@ sudo $E update-grub
 
 ---
 
+#### Step 5 — Confirm the booted kernel is the new build
+
+`tainted = 0` says the running kernel is clean. It does not say the running kernel is the one just built. A rebuild of the same release installs over `/boot/vmlinuz-<rel>` and `/lib/modules/<rel>`, and a suspend and resume keeps the old kernel running. On 2026-11-14 the Yoga 9i booted `#15` at 16:49, `#16` was installed at 17:18, and the next morning's checks read `#15`.
+
+`kernel-build` stamps every build with a build ID: `KBUILD_BUILD_VERSION=<n>-<8 random hex>`, so `uname -v` reads `#17-3fa9c2d1 SMP PREEMPT_DYNAMIC ...`. It stops if the ID is missing from `include/generated/utsversion.h` after `make`, or from the version string of `/boot/vmlinuz-<rel>` after install. It then writes the release, the full `uname -v` string, the source and the commit to `~/.local/state/kernel-build/installed`.
+
+After the reboot, run the check before recording anything:
+
+```sh
+kernel-boot-check
+```
+
+If `uname -r` or `uname -v` differs from the record, it prints both, prints nothing else and exits 1. Results from that boot belong to a different kernel; reboot and run it again. On a match it prints the build ID, then the taint flags, error counts, kernel warnings and failed units.
+
+The worst case, `#99999-ffffffff SMP PREEMPT_DYNAMIC` plus the date, is 64 characters, the limit the kernel's `cut -b -64` allows.
+
+---
+
 #### Known issue — 7.4-rc2 no microphone (fixed upstream)
 
 7.4-rc2 commit `4dd10fbbeb9c` moved the ASoC runtime allocation in `soc_new_pcm_runtime()` to `devm_kzalloc_flex()`. With GCC 16 (`__builtin_counted_by_ref`) that presets `rtd->num_components` to the capacity, so no component is probed and the SOF topology never loads. Symptom: `fail to add hda routes, ret -19`, no sound card, no DMIC.
