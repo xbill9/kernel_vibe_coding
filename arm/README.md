@@ -1,0 +1,60 @@
+# linux-arm-adventures
+
+Running Debian on Windows-on-ARM laptops: what works, what breaks, how to get them back when they break.
+
+| Machine | SoC | Status | Notes |
+|---|---|---|---|
+| Lenovo Yoga C630 (81JL) | Snapdragon 850 (SDM850) | Debian sid, kernel 7.2.9, GNOME. GPU accel, audio, Wi-Fi, video decode, BT, battery and USB-C work (IPA blocked) | [c630/](c630/) |
+| Samsung Galaxy Book Go | Snapdragon 7c Gen 2 | Broken and offline; keyboard fails in Windows too. No upstream support (community DTS only) | [galaxy-book-go/](galaxy-book-go/) |
+
+## Layout
+
+```
+c630/
+  README.md                   hardware, current boot chain, day-to-day commands
+  RECOVERY.md                 runbook: rescue stick -> SSH -> fix, with no typing on the laptop
+  INCIDENT-2026-10-10.md      the sid upgrade that blacked out every kernel, and what fixed it
+  FIRMWARE.md                 what's missing, where the Lenovo firmware comes from, install plan
+  HARDWARE.md                 what works and what doesn't, per device, with the kernel messages
+  AUDIT-2026-10-10.md         drivers / firmware / hardware / system-tools audit, and the DNS incident
+  WIFI.md                     Wi-Fi: regdomain/5 GHz DFS association refusals, captive portals vs USB tether
+  MODEM.md                    LTE modem: what works over QMI, the IPA lockup, hypotheses, how to test safely
+  QUIRKS.md                   firmware quirks (RTC, EFI tables, watchdog), install-time keyboard lockups, the stick's GRUB, s2idle resume
+  logs/                       kernel logs from crashes
+  LOG.md                      dated log of everything done to the machine
+  firmware-local/             proprietary firmware + its README: LOCAL ONLY, git-ignored
+  system/                     systemd units (c630-bt-addr.service), regdom.conf (for /etc/modprobe.d)
+  initramfs/                  initramfs-tools hook adding GPU firmware
+  scripts/                    c630-menu (boot menu generator), apply.sh (stick-style boot setup), c630-nm-takeover, c630-apt-snapshot
+  stick/                      the installer stick's shim, GRUB 2.12 and DTB: the known-working boot loader
+  backups/                    boot partitions, configs and logs pulled from the laptop
+articles/
+  c630-debian/                the C630 write-up for dev.to, Medium and Substack: source markdown, cover, Medium HTML, evidence
+  galaxy-book-go-debian/       the Galaxy Book Go write-up (published 2026-10-12 on dev.to, Medium, Substack and LinkedIn (links.txt), Medium HTML), written on the machine; cover, evidence
+setup/
+  new-machine.sh              pull Claude Code config, memories, publishing kit, dev.to key and git identity from an older install
+galaxy-book-go/
+  README.md                   research: keyboard triage, Linux state of the art, boot tricks, sources
+  DEBIAN.md                   Debian 13 on this unit: why it didn't boot, the DTB boot fix, keyboard-as-tablet fix, recovery
+  SID.md                      trixie -> sid: holds, initramfs hook, off-machine backup, recovery
+  ACPI.md                     Samsung's ACPI tables: dumping them via a UEFI-shell one-time boot, virtual-pin -> GPIO map
+  FIRMWARE.md                 Samsung firmware from the Windows DriverStore: tested staging, one-time GRUB test, Wi-Fi boot race, ADSP memory
+  AUDIT-2026-10-11.md         drivers / firmware / hardware / system-tools audit of the Debian install
+  scripts/                    09_galaxy-book-go (GRUB generator with the DTB), gbgo-fix-boot.sh (applies it from rescue), gbgo-firmware, gbgo-wifi-kick, gbgo-audio-kick, gbgo-bt-addr, gbgo-dtb-patch, gbgo-sid-upgrade, gbgo-boot-verify, gbgo-dtb-audio.py, gbgo-audio-check, acpi-*.py
+  system/                     61-gbgo-keyboard.rules (keyboard tagged as a tablet pad), gbgo-wifi-kick.service, gbgo-audio-kick.service, gbgo-bt-addr.service, zram-generator.conf,
+                              logind/ (lid locks until suspend is tested), gschema/ (power button shows the dialog)
+  efi-shell/                  startup.nsh: ACPI dump from the UEFI shell
+  initramfs/                  gbgo-firmware hook (GPU firmware into the initramfs)
+  backups/                    pre-fix GRUB config and ESP
+  win11-stick/                Win11 ARM installer stick: load.cmd (drvload order), winpeshl.ini, autounattend.xml, update script
+```
+
+Kernels and initramfs images inside `backups/` are not committed (see `.gitignore`); they are in the tarball and are reproducible from Debian packages.
+
+## Lessons that apply to both machines
+
+- **Find out which boot loader the firmware actually runs before changing any of them.** These machines often have more than one ESP, and the firmware's choice is not the obvious one. Put a marker in each loader's menu (`set c630_from=...` → `[via ...]` in the entry title) and read it off the screen.
+- **Keep GRUB and shim held** (`apt-mark hold`) once a working version is found. A distro upgrade that replaces them can black out every kernel.
+- **Keep a hand-written boot menu that `update-grub` does not touch**, generated by a small script from the installed kernels, each kernel paired with its own DTB.
+- **Rescue over SSH**: boot the installer stick's rescue mode, open a shell in the installed system, run `mkdir /run/sshd; /usr/sbin/sshd`, and do the rest remotely. Install an SSH key ahead of time.
+- **Verify each claim before asking for a reboot.** Every reboot of these machines costs minutes. Check every file a boot depends on (hashes, `grub-script-check`, commands built into the GRUB binary, raw-disk reads with `debugfs`) first.

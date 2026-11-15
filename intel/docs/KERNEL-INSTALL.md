@@ -1,0 +1,73 @@
+#### Building and installing mainline on x86 (Debian)
+
+Notes for the Intel machines that run kernels built from `~/linux`: `yoga9i` (Yoga 9i, Raptor Lake-P, i915), `gpu` (i7-5820K, RTX 3050) and `yogagpu`. Each item was observed on the date given.
+
+---
+
+#### Step 1 — Build
+
+```sh
+kernel-build --no-install      # pull, olddefconfig, make -j$(nproc)
+```
+
+A fresh tree starts from `/boot/config-$(uname -r)`, with Debian's signing keys blanked and `LOCALVERSION=-mainline`. The working config has `CONFIG_RUST=y` and `CONFIG_DEBUG_INFO_BTF=y`.
+
+---
+
+#### Step 2 — Install with stripped modules
+
+```sh
+sudo make -j16 INSTALL_MOD_STRIP=1 modules_install && sudo make install
+```
+
+With `CONFIG_DEBUG_INFO=y`, a plain `modules_install` puts full DWARF in every module: `/lib/modules/<rel>` was 1.3G and the initrd 641MB (measured 2026-11-14). With `INSTALL_MOD_STRIP=1` they were 118M and 88MB, and the `.BTF` sections are kept. The serial install took about 20 minutes, against 35 seconds with `-j16`.
+
+Check `/boot/initrd.img-<rel>` is about 90MB afterwards.
+
+⚠️ `scripts/kernel-build` runs a plain `sudo make modules_install`. Add `-j16 INSTALL_MOD_STRIP=1` before using it to install.
+
+---
+
+#### Step 3 — Make the new build the boot default
+
+A build is meant to be run. `GRUB_DEFAULT` in `/etc/default/grub` is pinned to a `gnulinux-<release>-advanced-<uuid>` id, so `make install` alone leaves the old kernel booting.
+
+1. Back up `/etc/default/grub`.
+2. Swap the release in the id for the new one.
+3. `sudo update-grub`.
+4. Confirm the id exists in `/boot/grub/grub.cfg`.
+
+On `gpu`, `GRUB_DEFAULT=0` and the newest kernel sorts first, so the new build is already the default. Confirm entry 0's `linux` line in `grub.cfg`.
+
+---
+
+#### Step 4 — NVIDIA DKMS (machines with an NVIDIA card)
+
+`sudo make install` breaks the NVIDIA DKMS build. The kernel's install target exports `KERNELRELEASE`, the `/etc/kernel/postinst.d/dkms` hook inherits it, and NVIDIA's Makefile then runs `include $(src)/Kbuild` with an empty `src` (`/Kbuild: No such file`). `run-parts` stops there, so the initramfs and `update-grub` hooks are skipped too (observed 2026-11-13).
+
+Install by hand in a clean environment instead, after `modules_install`:
+
+```sh
+K=<kernelrelease>; V=<nvidia version>
+sudo cp arch/x86/boot/bzImage /boot/vmlinuz-$K
+sudo cp System.map /boot/System.map-$K
+sudo cp .config /boot/config-$K
+E="env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root"
+sudo $E dkms remove nvidia/$V -k $K
+sudo $E dkms install nvidia/$V -k $K
+sudo $E update-initramfs -c -k $K      # -u if it already exists
+sudo $E update-grub
+```
+
+- Do not call `arch/x86/boot/install.sh` directly. It falls through to the LILO path and copies nothing.
+- **Rebuilding the same kernel release:** `dkms install --force` only reinstalls the cached build from `/var/lib/dkms`. Run `dkms build nvidia/$V -k $K --force` first, then `dkms install ... --force`.
+- A stale module fails with `modprobe: Exec format error` and repeated `x86/modules: Invalid relocation target, existing value is nonzero` in dmesg. `MODVERSIONS` is off, so vermagic alone does not catch it (seen on `gpu` and `yogagpu`, 2026-11-13).
+- The `gpu` config uses `LOCALVERSION=-xbill-hsw` with `nova-core` off, so it does not contend with `nvidia` for the GA106.
+
+---
+
+#### Known issue — 7.4-rc2 no microphone (fixed upstream)
+
+7.4-rc2 commit `4dd10fbbeb9c` moved the ASoC runtime allocation in `soc_new_pcm_runtime()` to `devm_kzalloc_flex()`. With GCC 16 (`__builtin_counted_by_ref`) that presets `rtd->num_components` to the capacity, so no component is probed and the SOF topology never loads. Symptom: `fail to add hda routes, ret -19`, no sound card, no DMIC.
+
+🟢 Fixed upstream by `d00ba321499c` "ASoC: soc-core: reset rtd->num_components after allocation" (pulled 2026-11-14). Any tree containing it needs no local patch.

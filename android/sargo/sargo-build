@@ -1,0 +1,25 @@
+#!/bin/bash
+# Pull the latest xbill9 fork commits into the LineageOS 24.0 tree, build sargo, print the zip.
+# Usage: sargo-build [--sync-only]
+set -u
+T=/android/lineage-24.0
+LOG=~/sargo-bpf-test/logs/build-24.log
+cd "$T" || exit 1
+
+forks=$(sed -n 's/.*name="xbill9\/[^"]*" path="\([^"]*\)".*/\1/p' .repo/local_manifests/sargo.xml)
+echo "== syncing: "$forks
+repo sync -c -j8 --no-tags --no-clone-bundle --optimized-fetch $forks || exit 1
+[ "${1:-}" = --sync-only ] && exit 0
+
+echo "== building, free space: $(df -h --output=avail "$T" | tail -1 | tr -d ' ')"
+tail -n0 -F "$LOG" 2>/dev/null &
+TAIL=$!
+bash kernel/google/msm-4.9/backport-tools/lineage-24.0/build-24-guarded.sh
+kill $TAIL 2>/dev/null
+
+if grep -q '^exit=0$' "$LOG"; then
+  echo "== done: $(ls -t out/target/product/sargo/lineage-*-sargo.zip | head -1 | sed "s|^|$T/|")"
+else
+  echo "== build failed, log: $LOG"
+  exit 1
+fi

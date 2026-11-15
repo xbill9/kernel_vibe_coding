@@ -1,0 +1,70 @@
+#!/bin/sh
+# GRUB generator for the Samsung Galaxy Book Go (sc7180): every installed kernel
+# gets an entry that loads the device tree (Debian ships no Book Go DTB, and
+# ACPI boot reboots this machine), plus a verbose entry for debugging.
+# Installed as /etc/grub.d/09_galaxy-book-go, so it runs before 10_linux and
+# re-runs on every update-grub (kernel upgrades).
+# Entry ids per kernel:
+#   gbgo-<kver>         normal
+#   gbgo-safe-<kver>    no msm, no DSPs, and the saved known-good initramfs
+#                       (/boot/gbgo-known-good/initrd.img-<kver>) when there is one
+#   gbgo-debug-<kver>   verbose
+#   gbgo-fwtest-<kver>  only while /usr/lib/firmware-gbgo-test exists
+#   gbgo-dtbtest-<kver> only while <dtb>.test exists: that DTB instead
+# Pick the default with GRUB_DEFAULT in /etc/default/grub; boot one entry once
+# with: grub-reboot <id>
+set -e
+. /usr/share/grub/grub-mkconfig_lib  # sets grub_probe and the helpers below
+DTB=${GBGO_DTB:-/boot/dtb/sc7180-samsung-galaxy-book-go.dtb}
+ARGS="clk_ignore_unused pd_ignore_unused"
+DBG="ignore_loglevel"
+# SAFE: no display driver (EFI framebuffer only) and no Qualcomm DSP/modem.
+SAFE="modprobe.blacklist=msm,qcom_q6v5_pas,qcom_q6v5_mss ignore_loglevel"
+# FWTEST: only while /usr/lib/firmware-gbgo-test exists. Firmware there is tried
+# before /usr/lib/firmware, for that boot only. Boot it once with grub-reboot.
+FWTEST_DIR=/usr/lib/firmware-gbgo-test
+[ -f "$DTB" ] || { echo "09_galaxy-book-go: $DTB missing, no Book Go entries" >&2; exit 0; }
+DEV=$(prepare_grub_to_access_device "$(${grub_probe} --target=device /boot)" | sed 's/^/	/')
+D=$(make_system_path_relative_to_its_root "$DTB")
+for K in $(ls -1 /boot/vmlinuz-* 2>/dev/null | sort -V -r); do
+  V=${K#/boot/vmlinuz-}
+  I=/boot/initrd.img-$V
+  [ -f "$I" ] || continue
+  # SAFE boots the saved known-good initramfs when there is one
+  KG=/boot/gbgo-known-good/initrd.img-$V
+  SI=$I; [ -f "$KG" ] && SI=$KG
+  echo "Found Galaxy Book Go entry: $V" >&2
+  kinds="normal safe debug"; [ -d $FWTEST_DIR ] && kinds="$kinds fwtest"
+  [ -f "$DTB.test" ] && kinds="$kinds dtbtest"
+  for kind in $kinds; do
+    if [ $kind = normal ]; then id=gbgo-$V; title="Debian $V (Galaxy Book Go DTB)"; extra="${GRUB_CMDLINE_LINUX_DEFAULT}"
+    elif [ $kind = safe ]; then id=gbgo-safe-$V; title="Debian $V (Galaxy Book Go DTB) SAFE - no display driver, no DSPs"; extra=$SAFE
+    elif [ $kind = fwtest ]; then id=gbgo-fwtest-$V; title="Debian $V (Galaxy Book Go DTB) - TEST firmware ($FWTEST_DIR)"; extra="firmware_class.path=$FWTEST_DIR ignore_loglevel"
+    elif [ $kind = dtbtest ]; then id=gbgo-dtbtest-$V; title="Debian $V (Galaxy Book Go) - TEST device tree ($DTB.test)"; extra="${GRUB_CMDLINE_LINUX_DEFAULT}"
+    else id=gbgo-debug-$V; title="Debian $V (Galaxy Book Go DTB) - verbose debug"; extra=$DBG; fi
+    cat <<ENTRY
+menuentry '$title' --id $id {
+$DEV
+	linux	$(make_system_path_relative_to_its_root "$K") root=UUID=${GRUB_DEVICE_UUID} ro ${GRUB_CMDLINE_LINUX} $ARGS $extra
+	initrd	$(if [ $kind = safe ]; then make_system_path_relative_to_its_root "$SI"; else make_system_path_relative_to_its_root "$I"; fi)
+	devicetree	$(if [ $kind = dtbtest ]; then echo "$D.test"; else echo "$D"; fi)
+}
+ENTRY
+  done
+done
+
+# One-time UEFI shell (dumps the ACPI tables via startup.nsh), only while it is
+# on the ESP. Boot it once with: grub-reboot gbgo-efishell
+SHELL_EFI=/boot/efi/EFI/gbgo-shell/shellaa64.efi
+if [ -f $SHELL_EFI ]; then
+  ESP_UUID=$(${grub_probe} --target=fs_uuid /boot/efi)
+  cat <<ENTRY
+menuentry 'UEFI Shell: dump ACPI tables (gbgo-shell)' --id gbgo-efishell {
+	insmod part_gpt
+	insmod fat
+	insmod chain
+	search --no-floppy --fs-uuid --set=root $ESP_UUID
+	chainloader /EFI/gbgo-shell/shellaa64.efi
+}
+ENTRY
+fi

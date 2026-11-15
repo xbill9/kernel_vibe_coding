@@ -1,0 +1,55 @@
+#!/bin/bash
+#
+# Have Claude audit this machine for missing hardware support: devices with
+# no driver bound, missing firmware, absent kernel modules, and the system
+# utilities that go with the hardware that is actually present.
+#
+# usage: update-hw [-p] [extra instructions ...]
+#
+# By default Claude runs interactively, so it can propose package installs
+# and you approve each command as it comes up.  -p prints a report and exits
+# without changing anything.  Any arguments are appended to the prompt, e.g.
+#
+#   update-hw focus on the wifi card
+
+prog=`basename $0`
+report=
+
+die() {
+  echo "$prog: $*" >&2
+  exit 1
+}
+
+usage() {
+  echo "usage: $prog [-p] [extra instructions ...]" >&2
+  exit 2
+}
+
+while getopts 'ph' opt ; do
+  case $opt in
+    p) report=1 ;;
+    h|?) usage ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+command -v claude >/dev/null 2>&1 || die "claude not found in PATH -- run claude-update"
+
+prompt="Check this Linux machine for missing hardware support, firmware, drivers, and system utilities.
+
+- Identify the hardware: lspci -nnk, lsusb, lsblk, /proc/cpuinfo, and dmidecode or /sys/class/dmi where readable.
+- Find devices with no kernel driver in use, and modules that failed to load.
+- Look for missing firmware: dmesg / journalctl -k for 'firmware' and 'failed to load' errors, and compare against the installed firmware-* packages.
+- Check for the system utilities that match the hardware found (e.g. pciutils, usbutils, lshw, smartmontools, nvme-cli, ethtool, iw, alsa-utils, fwupd, nvidia-smi for an NVIDIA GPU) and say which are missing.
+- Note the distro and kernel, and whether the needed packages live in non-free / non-free-firmware components that are not enabled.
+
+Finish with a short table of what is missing and the exact command that would install or fix each item.  Do not run anything with sudo or install anything without asking first."
+
+[ $# -gt 0 ] && prompt="$prompt
+
+Additional instructions: $*"
+
+if [ -n "$report" ] ; then
+  exec claude -p "$prompt" </dev/null
+fi
+exec claude "$prompt"

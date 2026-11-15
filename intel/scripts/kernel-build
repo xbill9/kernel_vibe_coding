@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# kernel-build — pull the latest mainline kernel, build it, and install it.
+#
+# Usage: kernel-build [--no-pull] [--no-install] [--reboot]
+#   --no-pull     build the tree as it is, skip git pull
+#   --no-install  build only; skip modules_install/install
+#   --reboot      reboot once the install finishes
+#
+# Env: KSRC (default ~/linux), JOBS (default nproc)
+set -euo pipefail
+
+KSRC=${KSRC:-$HOME/linux}
+JOBS=${JOBS:-$(nproc)}
+PULL=1 INSTALL=1 REBOOT=0
+
+for arg in "$@"; do
+  case $arg in
+    --no-pull)    PULL=0 ;;
+    --no-install) INSTALL=0 ;;
+    --reboot)     REBOOT=1 ;;
+    -h|--help)    sed -n '2,8p' "$0"; exit 0 ;;
+    *) echo "unknown option: $arg" >&2; exit 2 ;;
+  esac
+done
+
+if [[ ! -d $KSRC/.git ]]; then
+  echo "cloning mainline into $KSRC"
+  git clone https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git "$KSRC"
+  PULL=0
+fi
+cd "$KSRC"
+
+if (( PULL )); then
+  git pull --ff-only
+fi
+echo "source: $(git describe --tags)"
+
+# Start from the existing .config, or the running kernel's config on a fresh tree.
+if [[ ! -f .config ]]; then
+  cp "/boot/config-$(uname -r)" .config
+  # Debian configs point at signing keys that are not on this machine.
+  scripts/config --set-str SYSTEM_TRUSTED_KEYS "" --set-str SYSTEM_REVOCATION_KEYS ""
+  scripts/config --set-str LOCALVERSION "-mainline"
+fi
+make olddefconfig
+
+start=$(date +%s)
+make -j"$JOBS"
+release=$(make -s kernelrelease)
+echo "built $release in $(( $(date +%s) - start ))s"
+
+if (( INSTALL )); then
+  sudo make modules_install
+  sudo make install          # Debian installkernel: initramfs + update-grub
+  echo "installed $release"
+  if (( REBOOT )); then
+    sudo systemctl reboot
+  fi
+else
+  echo "not installed (--no-install)"
+fi
