@@ -1,4 +1,4 @@
 devto = https://dev.to/xbill/the-vibe-coding-kernel-pocalypse-is-here-and-it-is-a-good-thing-3d83
 repo = https://github.com/xbill9/kernel_vibe_coding
-medium = PENDING
-substack = PENDING
+medium = https://xbill999.medium.com/the-vibe-coding-kernel-pocalypse-is-here-and-it-is-a-good-thing-594d0f4163ef
+substack = https://xbill9.substack.com/p/the-vibe-coding-kernel-pocalypse
