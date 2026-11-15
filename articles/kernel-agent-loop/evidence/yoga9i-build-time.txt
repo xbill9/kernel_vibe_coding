@@ -1,0 +1,12 @@
+# From ~/linux-build.log on yoga9i (a 'time make bindeb-pkg' of 7.4.0-rc1-mainline+), last lines, captured 2026-11-15T10:24:57-05:00. Verbatim.
+$ ls -l --time-style=long-iso ~/linux-build.log
+-rw-rw-r-- 1 xbill xbill 3308435 2026-11-05 09:40 /home/xbill/linux-build.log
+$ head -3 ~/linux-build.log
+  GEN     debian
+dpkg-buildpackage --build=binary --no-pre-clean --unsigned-changes -R'make -f debian/rules' -j1 -a$(cat debian/arch)
+dpkg-buildpackage: warning: email address 'xbill <xbill@yoga9i>' with single label domain
+$ tail -4 ~/linux-build.log
+
+real	34m27.915s
+user	473m26.471s
+sys	50m3.365s

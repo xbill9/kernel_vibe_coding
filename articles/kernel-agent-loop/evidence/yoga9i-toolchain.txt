@@ -1,0 +1,15 @@
+# Captured 2026-11-15T10:24:48-05:00 on yoga9i. Output verbatim.
+$ gcc --version | head -1
+gcc (Debian 16.2.0-4) 16.2.0
+$ nproc
+16
+$ grep -m1 "model name" /proc/cpuinfo
+model name	: 13th Gen Intel(R) Core(TM) i7-1360P
+$ cat /sys/class/dmi/id/product_version
+Yoga 9 14IRP8
+$ grep -E "^CONFIG_(RUST|DEBUG_INFO_BTF|LOCALVERSION)=" ~/linux/.config
+CONFIG_LOCALVERSION="-mainline"
+CONFIG_RUST=y
+CONFIG_DEBUG_INFO_BTF=y
+$ claude --version
+2.1.325 (Claude Code)

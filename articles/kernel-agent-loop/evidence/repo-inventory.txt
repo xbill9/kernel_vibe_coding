@@ -1,0 +1,56 @@
+# Captured 2026-11-15T10:24:20-05:00 on yoga9i from ~/kernel_vibe_coding at 12fc365. Output verbatim.
+$ wc -l series.txt series2.txt verifier-fixes.tsv
+  441 series.txt
+ 1642 series2.txt
+   38 verifier-fixes.tsv
+ 2121 total
+$ ls intel/scripts intel/docs
+intel/docs:
+KERNEL-INSTALL.md
+
+intel/scripts:
+hw-update
+kernel-build
+$ wc -l CLAUDE.md arm/CLAUDE.md intel/docs/KERNEL-INSTALL.md
+   8 CLAUDE.md
+  38 arm/CLAUDE.md
+  75 intel/docs/KERNEL-INSTALL.md
+ 121 total
+$ ls arm/galaxy-book-go/scripts arm/c630/scripts
+arm/c630/scripts:
+add_disk_tests.py
+apply.sh
+c630-apt-snapshot
+c630-bt-addr
+c630-fw-rollback
+c630-menu
+c630-nm-takeover
+gnome-install.sh
+
+arm/galaxy-book-go/scripts:
+09_galaxy-book-go
+acpi-from-dmem.py
+acpi-gpioint.py
+gbgo-audio-check
+gbgo-audio-kick
+gbgo-boot-verify
+gbgo-bt-addr
+gbgo-charge
+gbgo-dtb-audio.py
+gbgo-dtb-patch
+gbgo-firmware
+gbgo-fix-boot.sh
+gbgo-sid-upgrade
+gbgo-wifi-kick
+$ grep -n "Don.t break the boot" -A3 arm/CLAUDE.md
+7:## Don't break the boot
+8-
+9-- **Never unhold `grub*`/`shim*`** (`apt-mark hold`). GRUB 2.14 from sid blacks out every kernel. Only GRUB 2.12 from the stick works.
+10-- The firmware boots `/boot/efi/EFI/BOOT/BOOTAA64.EFI` and ends at `/boot/grub/c630.cfg`, which `c630-menu` generates. `update-grub`'s `grub.cfg` is not what boots, so don't fix boot problems there.
+--
+33:- The repo is the source of truth. **Edit the repo copy first, then install it to the live path yourself** (`/usr/local/sbin/`, `/etc/initramfs-tools/hooks/`, `/etc/systemd/system/`, `/etc/modprobe.d/`) and verify it took effect. Don't hand the user commands to run. Anything the boot depends on still follows "Don't break the boot": verify first, and reboot only after the user confirms.
+34-
+35-## Git
+36-
+$ uname -m
+x86_64

@@ -1,0 +1,84 @@
+# Captured 2026-11-15T10:23:59-05:00 on yoga9i. Output verbatim.
+$ git show -s 4dd10fbbeb9c
+4dd10fbbeb9c Kees Cook 2026-10-28
+treewide: Convert devm_kmalloc() family to the devm_kmalloc_obj() family
+
+Mirroring the earlier kmalloc_obj() conversion, convert the
+device-managed allocators over to the type-based API using the now
+updated scripts/coccinelle/api/kmalloc_objs.cocci. The size is derived
+from the type rather than written out as a sizeof(), and the result is
+a pointer to that type rather than void *, so a mismatch between the
+size requested and the variable assigned becomes a build error instead
+of being silently accepted.
+
+The conversions break down as:
+
+	6713	devm_kzalloc_obj()
+	1749	devm_kzalloc_objs()
+	 307	devm_kzalloc_flex()
+	  91	devm_kmalloc_objs()
+	  82	devm_kmalloc_obj()
+	   2	devm_kmalloc_flex()
+
+The rules deliberately leave alone allocations sized by a string or a
+byte-sized type, or assigned to a pointer to a byte-sized type, since
+those are byte buffers rather than objects. Allocations sized by a
+multi-byte integer type are only converted when they are assigned to a
+pointer to that same type, and allocations of pointers to integers or of
+void pointers are left alone too. After this change, 528 files still
+call devm_kmalloc(), devm_kzalloc(), devm_kcalloc(), or
+devm_kmalloc_array().
+
+Build tested with allmodconfig on x86_64, arm64, i386, arm, riscv, s390,
+$ git describe --contains 4dd10fbbeb9c
+v7.4-rc2~1^2
+$ git show -s d00ba321499c
+d00ba321499c Emanuele Ghidoli 2026-11-09
+ASoC: soc-core: reset rtd->num_components after allocation
+
+Commit 4dd10fbbeb9c ("treewide: Convert devm_kmalloc() family to the
+devm_kmalloc_obj() family") switched the snd_soc_pcm_runtime allocation
+in soc_new_pcm_runtime() to devm_kzalloc_flex(). components[] is
+annotated with __counted_by(num_components), so when the compiler
+provides __builtin_counted_by_ref() the allocation now also sets
+rtd->num_components to the number of allocated slots.
+
+snd_soc_rtd_add_component() fills components[] one entry at a time and
+expects num_components to start at zero. Starting from the allocated
+size, for_each_rtd_components() stops at the first, still NULL, entry,
+so the runtime has no components: they are not probed, no controls or
+user-visible PCM devices are created and the card registers empty,
+without any error message. In addition, each added component is stored
+past the end of components[]. On the tested board these stores still
+land in the slack of the kmalloc bucket that devres rounds the
+allocation up to, so KASAN does not report them.
+
+Reset num_components after the allocation.
+
+Seen on a Colibri iMX7D (simple-audio-card, fsl-sai, sgtl5000): the card
+is listed in /proc/asound/cards, but /proc/asound/pcm is empty and
+
+  amixer: Unable to find simple control 'Capture Mux',0
+  aplay: main:850: audio open error: No such file or directory
+
+Tested on that board with v7.4-rc2 built with GCC 15.2 (first seen with
+GCC 16.2): the failure is there without this change; with it, playback,
+$ git describe --contains d00ba321499c
+fatal: cannot describe 'd00ba321499c0050872d70c41d86069f1d52c248'
+diff --git a/sound/soc/soc-core.c b/sound/soc/soc-core.c
+index 1d2bbda0da77..70398e866ff2 100644
+--- a/sound/soc/soc-core.c
++++ b/sound/soc/soc-core.c
+@@ -387,6 +387,12 @@ static struct snd_soc_pcm_runtime *soc_new_pcm_runtime(
+ 		device_unregister(dev);
+ 		return NULL;
+ 	}
++	/*
++	 * devm_kzalloc_flex() presets the __counted_by() counter to the
++	 * allocated size when the compiler has __builtin_counted_by_ref(),
++	 * but snd_soc_rtd_add_component() expects it to start from zero.
++	 */
++	rtd->num_components = 0;
+ 
+ 	rtd->dev = dev;
+ 	INIT_LIST_HEAD(&rtd->list);

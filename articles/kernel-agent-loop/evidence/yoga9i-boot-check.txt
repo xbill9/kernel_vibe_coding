@@ -1,0 +1,38 @@
+# Captured 2026-11-15T10:24:09-05:00 on yoga9i (Lenovo Yoga 9i). Output verbatim.
+$ uname -r -v
+7.4.0-rc2-mainline+ #15 SMP PREEMPT_DYNAMIC Sat Nov 14 15:54:28 EST 2026
+$ cat /proc/sys/kernel/tainted
+0
+$ systemctl is-system-running
+running
+$ journalctl -k -b -p err --no-pager | wc -l
+62
+$ journalctl -k -b -p err --no-pager | grep -c "ACPI.*AE_ALREADY_EXISTS"
+58
+$ journalctl -k -b --no-pager | grep -cE "Oops|BUG:|WARNING:|Call Trace|soft lockup|rcu.*stall|hung task"
+0
+$ journalctl -b --no-pager | grep -E "PM: suspend (entry|exit)"
+Nov 14 18:13:52 yoga9i kernel: PM: suspend entry (s2idle)
+Nov 15 09:10:41 yoga9i kernel: PM: suspend exit
+$ systemctl --user --failed --no-legend
+● gnome-software.service loaded failed failed GNOME Software
+$ arecord -l | grep DMIC
+card 0: sofhdadsp [sof-hda-dsp], device 6: DMIC (*) []
+card 0: sofhdadsp [sof-hda-dsp], device 7: DMIC16kHz (*) []
+$ ls -l /boot/initrd.img-7.4.0-rc2-mainline+
+-rw-r--r-- 1 root root 88367505 Nov 15 09:12 /boot/initrd.img-7.4.0-rc2-mainline+
+$ du -sh /lib/modules/7.4.0-rc2-mainline+
+118M	/lib/modules/7.4.0-rc2-mainline+
+$ grep ^GRUB_DEFAULT= /etc/default/grub
+GRUB_DEFAULT="gnulinux-advanced-c4ade253-cb80-4f6c-a4b2-0a25e3581117>gnulinux-7.4.0-rc2-mainline+-advanced-c4ade253-cb80-4f6c-a4b2-0a25e3581117"
+$ git -C ~/linux describe --tags
+v7.4-rc2-716-g23c62304dde2
+
+$ journalctl -k -b -p err --no-pager | grep -v AE_ALREADY_EXISTS | sed "s/^.*kernel: //"
+i2c_hid_acpi i2c-WACF2200:00: device returned incorrect report (0 vs 11 expected)
+i2c_hid_acpi i2c-WACF2200:00: device returned incorrect report (0 vs 11 expected)
+i2c_hid_acpi i2c-WACF2200:00: device returned incorrect report (0 vs 11 expected)
+Error: Driver 'pcspkr' is already registered, aborting...
+
+$ echo "$(grep -c AE_ALREADY_EXISTS) of $(wc -l) kernel error lines are the BIOS duplicate"
+58 of 62 kernel error lines are the BIOS duplicate

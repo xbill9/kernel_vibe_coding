@@ -1,0 +1,79 @@
+# Captured 2026-11-15T10:23:55-05:00 on yoga9i from ~/linux (shallow clone, all refs). Output verbatim.
+$ ls -l AGENTS.md
+lrwxrwxrwx 1 xbill xbill 6 Nov  5 08:55 AGENTS.md -> README
+$ git log --all --no-merges --format="%h %an %ad | %s" --date=short -- AGENTS.md Documentation/process/coding-assistants.rst Documentation/process/generated-content.rst
+05441d697f7f Linus Torvalds 2026-11-03 | Merge tag 'cocci-7.4-rc1' of git://git.kernel.org/pub/scm/linux/kernel/git/jlawall/linux
+90d9f76ccb72 Sasha Levin 2026-09-24 | docs: add AGENTS.md as a symlink to README
+1e035297ffda Sasha Levin 2026-10-13 | docs: remove Assisted-by references
+3d7c44f73765 Willy Tarreau 2026-08-02 | docs: coding-assistant: explain important steps when looking for bugs
+816d9992d9ed Christian Brauner 2026-07-01 | coding-assistants: simplify attribution
+d699a5da1039 Lorenzo Stoakes 2026-07-02 | docs: link AI coding assistants and tool-generated content pages
+a66437c27979 Dave Hansen 2026-01-19 | Documentation: Provide guidelines for tool-generated content
+78d979db6cef Sasha Levin 2025-12-23 | docs: add AI Coding Assistants documentation
+$ git describe --contains 78d979db6cef
+v7.0-rc1~207^2~42
+$ git describe --contains a66437c27979
+v7.0-rc1~207^2~20
+$ git describe --contains 90d9f76ccb72
+v7.4-rc1~216^2
+$ git show -s 90d9f76ccb72
+90d9f76ccb72 Sasha Levin 2026-09-24
+docs: add AGENTS.md as a symlink to README
+
+Most coding agents have standardized on AGENTS.md as the file they load
+automatically from the root of a repository. README already tells AI
+tools to read and follow Documentation/process/coding-assistants.rst,
+but that only helps if the agent decides to read README before acting,
+which in practice it often doesn't.
+
+Add a top-level AGENTS.md symlink to README, so agents load it on their
+own and follow its pointer to the AI guidelines. This keeps a single
+entry point for every reader, and avoids adding a separate copy of the
+policy that could drift from the RST.
+
+As an example, two different agents were asked to "create a new commit
+renaming the release (in the Makefile) to AI Test".
+
+Without AGENTS.md, the first agent added a Signed-off-by for the user on
+its own. It should never have done that: only the human submitter can
+certify the Developer Certificate of Origin, after reviewing the change.
+It also used its own attribution tag instead of Assisted-by:
+
+> Makefile: rename release to AI Test
+>
+> Co-Authored-By: <model name> <noreply@...>
+> Signed-off-by: Sasha Levin <sashal@kernel.org>
+
+The second agent added no attribution at all:
+
+> Rename release to AI Test
+
+With AGENTS.md in place, neither agent added a Signed-off-by, and both
+used the Assisted-by tag. README itself mentions neither tag, so both
+agents followed its pointer to coding-assistants.rst:
+
+> Makefile: rename release to "AI Test"
+>
+> Change the release name from "Baby Opossum Posse" to "AI Test".
+>
+> Assisted-by: LLM
+
+> Makefile: rename release to AI Test
+>
+> Assisted-by: LLM
+
+Both agents also followed the kernel's general guidelines more closely.
+The second agent's subject gained the "subsystem: summary phrase" form
+that submitting-patches.rst asks for, instead of a bare "Rename release
+to AI Test", and the first agent added a body describing the change.
+
+Assisted-by: LLM
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+Acked-by: Kees Cook <kees@kernel.org>
+Signed-off-by: Jonathan Corbet <corbet@lwn.net>
+Message-ID: <20260924134945.3095661-1-sashal@kernel.org>
+
+$ wc -l AGENTS.md Documentation/process/coding-assistants.rst
+ 168 README
+  77 Documentation/process/coding-assistants.rst
+ 245 total
