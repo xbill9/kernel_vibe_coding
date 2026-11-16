@@ -17,7 +17,7 @@ PUBKIT  ?= $(HOME)/publishing-kit/skills/publishing/scripts
 ARTICLE ?= articles/kernel-agent-loop/devto-kernel-agent-loop.md
 SCRIPTS := intel/scripts/kernel-build intel/scripts/kernel-boot-check \
            intel/scripts/kernel-log-compare \
-           intel/scripts/hw-update android/sargo/sargo-build
+           intel/scripts/hw-update
 
 .PHONY: help install install-scripts feedback loop docs docs-check article
 

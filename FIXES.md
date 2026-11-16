@@ -1,6 +1,6 @@
 # Fixes
 
-One entry per problem found in the kernel loop, open or fixed: what broke, why, what fixed it, and how the fix was checked. ARM bring-up history stays in `arm/c630/LOG.md`, and the Pixel 3a backport's upstream fixes in `android/backport-tools/`.
+One entry per problem found in the kernel loop, open or fixed: what broke, why, what fixed it, and how the fix was checked. ARM bring-up history stays in `arm/c630/LOG.md`, and the Pixel 3a backport's upstream fixes in `backport-tools/` of [android_kernel_google_msm-4.9](https://github.com/xbill9/android_kernel_google_msm-4.9).
 
 | Status | Meaning |
 |---|---|

@@ -6,7 +6,8 @@ Kernel scripts, tools and runbooks for every machine here, Intel and ARM, in one
 |---|---|---|
 | [intel/](intel/) | Yoga 9i (Raptor Lake-P), `gpu` (i7-5820K + RTX 3050) | mainline build script, hardware audit script, install runbook (stripped modules, GRUB default, NVIDIA DKMS) |
 | [arm/](arm/) | Lenovo Yoga C630 (SDM850), Samsung Galaxy Book Go (7c Gen 2) | Debian on Windows-on-ARM: boot menus, DTB patches, firmware staging, Wi-Fi/audio/BT fixes, systemd units, recovery runbooks |
-| [android/](android/) | Pixel 3a (`sargo`, msm-4.9) | eBPF backport tooling for the LineageOS 4.9 kernel, LineageOS 24.0 build and phone install scripts |
+
+The Pixel 3a (`sargo`, msm-4.9) kernel, its eBPF backport tooling and the LineageOS 24.0 build and install scripts live in [xbill9/android_kernel_google_msm-4.9](https://github.com/xbill9/android_kernel_google_msm-4.9) (`backport-tools/`), cloned at `~/android_kernel_google_msm-4.9`. `~/bin/sargo-build` and `~/bin/sargo-install` link into that tree.
 
 ## Layout
 
@@ -25,10 +26,6 @@ arm/
   c630/                     Yoga C630: RECOVERY, HARDWARE, FIRMWARE, QUIRKS, WIFI, MODEM, LOG; scripts/, system/, stick/ (GRUB 2.12 + DTB)
   galaxy-book-go/           Galaxy Book Go: DEBIAN, SID, ACPI, FIRMWARE; scripts/ (gbgo-*), system/, initramfs/, efi-shell/, win11-stick/
   setup/new-machine.sh      pull Claude Code config and git identity onto a fresh install
-android/
-  backport-tools/           series lists, missing_fixes.py, resolve.py, build/next scripts, BPF probes, lineage-23.2/ and lineage-24.0/
-  sargo/sargo-build         sync the xbill9 forks into the LineageOS 24.0 tree and build
-  sargo/sargo-install       flash the newest build onto an attached Pixel 3a and restore GApps
 ```
 
 ## Quick start
@@ -53,7 +50,5 @@ Copied on 2026-11-15 from:
 | `intel/scripts/` | `~/bin` (`kernel-build`, `hw-update`) |
 | `intel/docs/` | kernel install notes kept by Claude Code on the Yoga 9i |
 | `arm/` | [xbill9/linux-arm-adventures](https://github.com/xbill9/linux-arm-adventures) at `1d1cece`, without `articles/` and `backups/` |
-| `android/backport-tools/` | [xbill9/android_kernel_google_msm-4.9](https://github.com/xbill9/android_kernel_google_msm-4.9) at `dcaaefafd8ac` |
-| `android/sargo/` | `~/bin` (`sargo-build`, `sargo-install`) |
 
 Proprietary firmware and ACPI dumps stay local and are git-ignored (see `arm/.gitignore`).

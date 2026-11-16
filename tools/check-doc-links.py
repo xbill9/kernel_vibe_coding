@@ -16,7 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-TOP_DIRS = ("intel/", "arm/", "android/", "articles/", "tools/")
+TOP_DIRS = ("intel/", "arm/", "articles/", "tools/")
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 TICK = re.compile(r"`([^`\s]+)`")
 FENCE = re.compile(r"^\s*(```|~~~)")
