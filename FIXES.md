@@ -12,6 +12,8 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
+| F10 | ❌ | debian (Yoga 7 14IRL8) | `Driver 'pcspkr' is already registered` at boot | none yet |
+| F9 | ❌ | debian (Yoga 7 14IRL8) | systemd `bpf-restrict-fs` cannot load: no kernel BTF | none yet |
 | F8 | 🟢 | samsung13 | `make loop` reports hashed `%p` pointers as new error lines | `94316e9` |
 | F7 | ❌ | yoga9i | Wacom digitizer: `device returned incorrect report (0 vs 11 expected)` | none yet |
 | F6 | ⚠️ | not yoga9i | runtime-PM udev rule logs ~40 `Could not chase` lines per boot | `7ed46de` |
@@ -37,6 +39,24 @@ Take the next number and add it to the top of the index and as a section below. 
 ```
 
 ---
+
+### F10 — `pcspkr` driver registered twice
+
+- Status: ❌ open, harmless as far as seen
+- Machine / kernel: debian (Lenovo Yoga 7 14IRL8), 7.4.0-rc3 `#6-c3d1b926` against 7.3.4+deb14-amd64 `#1` (boot -1)
+- Symptom: `Error: Driver 'pcspkr' is already registered, aborting...`, once per boot, just after `input: PC Speaker as /devices/platform/pcspkr/input/input23`
+- Cause: `pcspkr` (input) and `snd_pcsp` (ALSA) both register a platform driver named `pcspkr` (`drivers/input/misc/pcspkr.c:126`, `sound/drivers/pcsp/pcsp.c:196`). In this build's `modules.alias` both modules answer `platform:pcspkr`; Debian 7.3.4's lists only `pcspkr`, so udev loads both here and the second registration fails. `pcspkr` stays loaded, `snd_pcsp` does not. Why the Debian alias table lacks `snd_pcsp` is untested.
+- Fix: none. Candidate: `blacklist snd_pcsp` in `/etc/modprobe.d/` (untested).
+- Checked: 2026-11-16, `grep pcspkr /lib/modules/*/modules.alias`; `lsmod` shows `pcspkr` only. The PC Speaker line appears on boot -1 with no error.
+
+### F9 — systemd `bpf-restrict-fs` fails: no kernel BTF
+
+- Status: ❌ open
+- Machine / kernel: debian (Lenovo Yoga 7 14IRL8), 7.4.0-rc3 `#6-c3d1b926` against 7.3.4+deb14-amd64 `#1` (boot -1)
+- Symptom: `systemd[1]: bpf-restrict-fs: Failed to load BPF object: No such process`. On boot -1 the same step logged `bpf-restrict-fs: LSM BPF program attached`.
+- Cause: `~/linux/.config` has `CONFIG_DEBUG_INFO_NONE=y`, so `CONFIG_DEBUG_INFO_BTF` is off and `/sys/kernel/btf/vmlinux` does not exist; systemd's LSM program is CO-RE and needs it. Debian's config has `CONFIG_DEBUG_INFO_BTF=y`, and `bpf` is in the active LSM list on both kernels. `KERNEL-INSTALL.md` says the working config has BTF on, which is not true of this tree.
+- Fix: none yet. Candidate: `scripts/config -e DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT -e DEBUG_INFO_BTF`, full rebuild (pahole v1.32 is installed) — untested.
+- Checked: 2026-11-16, `ls /sys/kernel/btf/vmlinux` → no such file; `grep DEBUG_INFO ~/linux/.config`.
 
 ### F8 — `make loop` reports hashed pointers as new error lines
 
