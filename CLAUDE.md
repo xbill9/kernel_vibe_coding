@@ -8,6 +8,7 @@ Kernel scripts and runbooks for Intel (`intel/`), Windows-on-ARM laptops (`arm/`
 - `~/bin/kernel-build`, `kernel-boot-check`, `hw-update` and `sargo-build` are symlinks into the repo (`make install-scripts`), so edits are live at once. `~/bin/sargo-install` comes from `~/android_kernel_google_msm-4.9`, not `android/sargo/`.
 - Scripts: `arm/` is POSIX `#!/bin/sh`; `intel/` and `android/` are bash (`set -euo pipefail` in `intel/`). Each starts with a usage/env header comment that `-h` prints.
 - `articles/<slug>/` holds published articles. `links.txt` records the live URLs; keep it current after each publish.
+- Record each problem the loop finds, open or fixed, in `FIXES.md` (index row plus section, with how the fix was checked).
 - Mark anything not verified as untested.
 - Never commit proprietary firmware, ACPI dumps, kernels or initrds.
 - Commit straight to `main` and push. Subject prefixes: `intel:`, `Article:`, `C630:` (machine name for other `arm/` machines).

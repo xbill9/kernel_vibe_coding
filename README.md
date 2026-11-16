@@ -11,6 +11,7 @@ Kernel scripts, tools and runbooks for every machine here, Intel and ARM, in one
 ## Layout
 
 ```
+FIXES.md                    every problem the kernel loop found, open or fixed, and how each fix was checked
 Makefile                    make install | install-scripts | feedback | loop | docs  (run `make` for the list)
 tools/check-doc-links.py    broken local links and repo paths in the markdown
 intel/
