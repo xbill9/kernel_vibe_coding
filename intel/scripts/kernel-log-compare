@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# kernel-log-compare — compare this boot's logs with the last boot of a
+# different kernel build: what is new, what is gone, and the counts for each.
+#
+# Usage: kernel-log-compare [boot]
+#   boot  journal offset of the baseline (-1, -2, ...); default: the most
+#         recent earlier boot whose "Linux version" line differs from this one
+#
+# Exit: 0 no new kernel error lines and no new oops/warnings, 1 there are,
+#       2 no baseline boot in the journal.
+set -euo pipefail
+
+version() { journalctl -k -b "$1" --no-pager -o cat -g '^Linux version' 2>/dev/null | head -1; }
+short()   { sed -E 's/^Linux version ([^ ]+) .*\) (#[^ ]+) .*/\1 \2/' <<<"$1"; }
+
+cur=$(version 0)
+if [[ $# -ge 1 ]]; then
+  base=$1
+else
+  base=
+  for b in $(journalctl --list-boots --no-pager -q | awk '$1 < 0 {print $1}' | sort -rn); do
+    if [[ $(version "$b") != "$cur" ]]; then base=$b; break; fi
+  done
+fi
+if [[ -z $base || -z $(version "$base") ]]; then
+  echo "no earlier boot of a different kernel in the journal" >&2
+  exit 2
+fi
+prev=$(version "$base")
+
+# Kernel lines with the parts that change every boot taken out: hex values
+# and numbers of four digits or more (addresses, PIDs, sizes).
+norm() { sed -E 's/0x[0-9a-fA-F]+/0x_/g; s/\b[0-9]{4,}\b/N/g'; }
+kerr()  { journalctl -k -b "$1" -p err --no-pager -o cat | norm; }
+oops()  { journalctl -k -b "$1" --no-pager -o cat | grep -E "Oops|BUG:|WARNING:|Call Trace|soft lockup|rcu.*stall|hung task" | norm || true; }
+units() { journalctl -b "$1" --no-pager -o cat _PID=1 | grep -E 'Failed with result' | sed -E 's/: Failed with result.*//' | sort -u || true; }
+
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+for side in cur base; do
+  b=0; [[ $side == base ]] && b=$base
+  kerr "$b"  | sort >"$tmp/$side.err"
+  oops "$b"  | sort >"$tmp/$side.oops"
+  units "$b"        >"$tmp/$side.units"
+  journalctl -k -b "$b" -p warning --no-pager -o cat | wc -l >"$tmp/$side.warn"
+  journalctl -b "$b" -p err --no-pager -o cat | wc -l >"$tmp/$side.all"
+done
+
+count() { wc -l <"$1"; }
+row()   { printf '  %-28s %8s %8s %+8d\n' "$1" "$2" "$3" $(( $3 - $2 )); }
+
+echo "# this boot:  $(short "$cur")  (boot 0, up since $(uptime -s))"
+echo "# baseline:   $(short "$prev")  (boot $base)"
+echo
+printf '  %-28s %8s %8s %8s\n' "" baseline "this" change
+row "kernel errors (-p err)"    "$(count "$tmp/base.err")"   "$(count "$tmp/cur.err")"
+row "kernel warnings and above" "$(cat "$tmp/base.warn")"    "$(cat "$tmp/cur.warn")"
+row "oops / BUG / WARNING lines" "$(count "$tmp/base.oops")" "$(count "$tmp/cur.oops")"
+row "all errors, whole journal" "$(cat "$tmp/base.all")"     "$(cat "$tmp/cur.all")"
+row "failed units"              "$(count "$tmp/base.units")" "$(count "$tmp/cur.units")"
+
+# Line-level difference, with multiplicity: a line logged 3 times now and
+# once before shows as +2.
+diffcount() {   # diffcount <a> <b> [sign]: lines more frequent in b than in a
+  join -t $'\t' -a 2 -e 0 -o 0,1.2,2.2 \
+    <(uniq -c "$1" | sed -E 's/^ *([0-9]+) (.*)/\2\t\1/' | sort -t $'\t' -k1,1) \
+    <(uniq -c "$2" | sed -E 's/^ *([0-9]+) (.*)/\2\t\1/' | sort -t $'\t' -k1,1) |
+    awk -F '\t' -v s="${3:-1}" '$3 > $2 { printf "  %+4d  %s\n", s * ($3 - $2), $1 }' | sort -k1,1nr
+}
+section() {
+  echo; echo "$1"
+  if [[ -s $2 ]]; then cat "$2"; else echo "  (none)"; fi
+}
+diffcount "$tmp/base.err"  "$tmp/cur.err"  >"$tmp/new.err"
+diffcount "$tmp/cur.err"   "$tmp/base.err" -1 >"$tmp/gone.err"
+diffcount "$tmp/base.oops" "$tmp/cur.oops" >"$tmp/new.oops"
+comm -13 "$tmp/base.units" "$tmp/cur.units" | sed 's/^/  /' >"$tmp/new.units"
+
+section "new kernel error lines in this boot:" "$tmp/new.err"
+section "kernel error lines gone since the baseline:" "$tmp/gone.err"
+section "new oops / BUG / WARNING lines:" "$tmp/new.oops"
+section "units that failed in this boot only:" "$tmp/new.units"
+
+echo
+if [[ -s $tmp/new.err || -s $tmp/new.oops ]]; then
+  echo "result: $(count "$tmp/new.err") distinct new kernel error line(s), $(count "$tmp/new.oops") new oops/warning line(s)"
+  exit 1
+fi
+echo "result: no new kernel errors or oops lines against the baseline"

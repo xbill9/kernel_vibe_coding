@@ -5,6 +5,7 @@
 #   NOPULL=1  install: build ~/linux as it is, skip git pull
 #   KSRC, JOBS  passed through to kernel-build (default ~/linux, nproc)
 #   FORCE=1   install-scripts: replace a ~/bin copy that differs from the repo
+#   BASE=-N   loop: compare with journal boot -N instead of the last other build
 #   LIVE=1    article: also fetch every published URL in the preflight
 #   PUBKIT    publishing kit scripts (default ~/publishing-kit/skills/publishing/scripts)
 
@@ -15,9 +16,10 @@ BINDIR  ?= $(HOME)/bin
 PUBKIT  ?= $(HOME)/publishing-kit/skills/publishing/scripts
 ARTICLE ?= articles/kernel-agent-loop/devto-kernel-agent-loop.md
 SCRIPTS := intel/scripts/kernel-build intel/scripts/kernel-boot-check \
+           intel/scripts/kernel-log-compare \
            intel/scripts/hw-update android/sargo/sargo-build
 
-.PHONY: help install install-scripts feedback docs docs-check article
+.PHONY: help install install-scripts feedback loop docs docs-check article
 
 help:
 	@sed -n 's/^\([a-z-]*\):.*## \(.*\)/  make \1|\2/p' $(MAKEFILE_LIST) | column -t -s '|'
@@ -39,6 +41,10 @@ install-scripts: ## symlink the loop's scripts into ~/bin, so repo edits are liv
 
 feedback: ## after a reboot: confirm the running kernel is the installed build, then read the boot logs
 	intel/scripts/kernel-boot-check
+
+loop: ## build ID check, then this boot's logs against the last boot of another build: new, gone, counts
+	@intel/scripts/kernel-boot-check >/dev/null || intel/scripts/kernel-boot-check
+	intel/scripts/kernel-log-compare $(BASE)
 
 docs: docs-check article ## both doc checks below
 

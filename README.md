@@ -11,10 +11,12 @@ Kernel scripts, tools and runbooks for every machine here, Intel and ARM, in one
 ## Layout
 
 ```
-Makefile                    make install | install-scripts | feedback | docs  (run `make` for the list)
+Makefile                    make install | install-scripts | feedback | loop | docs  (run `make` for the list)
 tools/check-doc-links.py    broken local links and repo paths in the markdown
 intel/
   scripts/kernel-build      pull ~/linux, olddefconfig, build, stripped install, GRUB default (--no-pull --no-install --reboot)
+  scripts/kernel-boot-check after a reboot: running kernel is the installed build, then the boot logs
+  scripts/kernel-log-compare this boot's logs against the last boot of another build: new, gone, counts
   scripts/hw-update         Claude audit of missing drivers, firmware and hardware tools (-p: report only)
   docs/KERNEL-INSTALL.md    build -> stripped install -> GRUB default -> NVIDIA DKMS; known 7.4-rc2 issues
 arm/
