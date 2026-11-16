@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // .tool_response.filePath'); [ -f \"$f\" ] || exit 0; case \"$f\" in *.sh) ;; *) head -n1 \"$f\" | grep -qE '^#!.*\\b(ba)?sh\\b' || exit 0;; esac; out=$(shellcheck -S warning \"$f\" 2>&1) || { echo \"$out\" >&2; exit 2; }",
+            "timeout": 30,
+            "statusMessage": "shellcheck"
+          }
+        ]
+      }
+    ]
+  }
+}
