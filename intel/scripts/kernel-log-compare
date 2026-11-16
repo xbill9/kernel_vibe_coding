@@ -28,9 +28,10 @@ if [[ -z $base || -z $(version "$base") ]]; then
 fi
 prev=$(version "$base")
 
-# Kernel lines with the parts that change every boot taken out: hex values
-# and numbers of four digits or more (addresses, PIDs, sizes).
-norm() { sed -E 's/0x[0-9a-fA-F]+/0x_/g; s/\b[0-9]{4,}\b/N/g'; }
+# Kernel lines with the parts that change every boot taken out: hex values,
+# hashed %p pointers (16 hex digits, no 0x, rehashed every boot) and numbers
+# of four digits or more (addresses, PIDs, sizes).
+norm() { sed -E 's/0x[0-9a-fA-F]+/0x_/g; s/\b[0-9a-f]{16}\b/P/g; s/\b[0-9]{4,}\b/N/g'; }
 kerr()  { journalctl -k -b "$1" -p err --no-pager -o cat | norm; }
 oops()  { journalctl -k -b "$1" --no-pager -o cat | grep -E "Oops|BUG:|WARNING:|Call Trace|soft lockup|rcu.*stall|hung task" | norm || true; }
 units() { journalctl -b "$1" --no-pager -o cat _PID=1 | grep -E 'Failed with result' | sed -E 's/: Failed with result.*//' | sort -u || true; }

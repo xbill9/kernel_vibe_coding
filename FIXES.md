@@ -12,6 +12,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
+| F8 | 🟢 | samsung13 | `make loop` reports hashed `%p` pointers as new error lines | this commit |
 | F7 | ❌ | yoga9i | Wacom digitizer: `device returned incorrect report (0 vs 11 expected)` | none yet |
 | F6 | ⚠️ | not yoga9i | runtime-PM udev rule logs ~40 `Could not chase` lines per boot | `7ed46de` |
 | F5 | ⚠️ | gpu, yogagpu | NVIDIA DKMS build fails under `make install` | `1c9191f` |
@@ -36,6 +37,15 @@ Take the next number and add it to the top of the index and as a section below. 
 ```
 
 ---
+
+### F8 — `make loop` reports hashed pointers as new error lines
+
+- Status: 🟢
+- Machine / kernel: samsung13, 7.4.0-rc3-xbill `#13-83441d3f` against 7.4.0-rc2-xbill+ `#10` (boot -1)
+- Symptom: `make loop` exit 1 with `+1  ACPI Error: Needed [Integer/String/Buffer], found [Reference] 000000006b05a082 (N/exresop-388)` and one more like it, while the 16 baseline copies of the same message were listed as gone
+- Cause: `%p` prints a pointer hashed per boot as 16 hex digits with no `0x`; `kernel-log-compare` normalised only `0x` hex, so every copy was a distinct line
+- Fix: `kernel-log-compare` replaces 16-digit hex words with `P` before comparing
+- Checked: 2026-11-16, `make loop` on the same two boots: no new kernel error lines, exit 0; the exresop line shows as `-16` against the baseline
 
 ### F7 — Wacom digitizer incorrect report
 
