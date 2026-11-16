@@ -43,7 +43,7 @@ Result: the first boot from the internal disk reached `systemctl is-system-runni
 
 **Not yet tested:** kernel 6.12.111 (its entries exist, the default is pinned to .107), and the SAFE entries.
 
-Backups: `/root/gbgo-backup-20261011-104919/` on the laptop, and [backups/2026-10-11-before-dtb-fix/](backups/2026-10-11-before-dtb-fix/README.md).
+Backups: `/root/gbgo-backup-20261011-104919/` on the laptop, and [backups/2026-10-11-before-dtb-fix/](https://github.com/xbill9/linux-arm-adventures/blob/1d1cece/galaxy-book-go/backups/2026-10-11-before-dtb-fix/README.md).
 
 ## Keyboard misidentified as a tablet pad (fixed 11:07)
 

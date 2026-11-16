@@ -12,7 +12,7 @@ BIOS `9UCN34WW(V3.01)`, 2019-06-19 (AMI, EFI 2.6). Collected 2026-10-10 from the
 
 | | Kernel options |
 |---|---|
-| Stick's original `grub.cfg` ([backups/…/root/usb-efi-debian-grub.cfg.orig](backups/c630-2026-10-10/root/usb-efi-debian-grub.cfg.orig)) | `clk_ignore_unused pd_ignore_unused` |
+| Stick's original `grub.cfg` ([backups/…/root/usb-efi-debian-grub.cfg.orig](https://github.com/xbill9/linux-arm-adventures/blob/1d1cece/c630/backups/c630-2026-10-10/root/usb-efi-debian-grub.cfg.orig)) | `clk_ignore_unused pd_ignore_unused` |
 | Installer run that finished (installer syslog line 84) | `clk_ignore_unused pd_ignore_unused` **`regulator_ignore_unused usbcore.autosuspend=-1`** |
 
 Both added options have been on every boot entry since (`P=` in [scripts/c630-menu](scripts/c630-menu) and [scripts/apply.sh](scripts/apply.sh)). None of the 22 journal boots since then shows a keyboard lockup.

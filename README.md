@@ -11,6 +11,8 @@ Kernel scripts, tools and runbooks for every machine here, Intel and ARM, in one
 ## Layout
 
 ```
+Makefile                    make install | install-scripts | feedback | docs  (run `make` for the list)
+tools/check-doc-links.py    broken local links and repo paths in the markdown
 intel/
   scripts/kernel-build      pull ~/linux, olddefconfig, build, stripped install, GRUB default (--no-pull --no-install --reboot)
   scripts/hw-update         Claude audit of missing drivers, firmware and hardware tools (-p: report only)
@@ -30,8 +32,11 @@ android/
 
 ```sh
 git clone https://github.com/xbill9/kernel_vibe_coding
-export PATH=$PWD/kernel_vibe_coding/intel/scripts:$PATH
-kernel-build --no-install          # then follow intel/docs/KERNEL-INSTALL.md
+cd kernel_vibe_coding
+make install-scripts               # symlink the scripts into ~/bin
+make install                       # build and install; see intel/docs/KERNEL-INSTALL.md
+# reboot, then
+make feedback                      # build ID check, then the boot logs
 ```
 
 On an ARM laptop, start with that machine's `README.md` and `RECOVERY.md` before touching the boot chain.
