@@ -70,6 +70,10 @@ Newest last. Times are local (EDT).
 
 - 20:11: **Published the mainline 7.4 kernel as a GitHub release**: [`c630-7.4.0-rc2-23c62304`](https://github.com/xbill9/linux-arm-adventures/releases/tag/c630-7.4.0-rc2-23c62304), a pre-release. It contains `linux-image`, `linux-headers` and `linux-libc-dev` `.deb`s from `make bindeb-pkg` in `~/linux` (unmodified torvalds `23c62304dde2`, gcc 16.2.0), plus `sdm850-lenovo-yoga-c630.dtb`, the `.config` and `SHA256SUMS`. No firmware. Build `#5` booted here once at 15:31 (~1 h, clean shutdown). The `.deb`'s image is build `#7`: only `init/version.o` was recompiled and the image relinked. The DTB (`d53b6c01623c3bd5…`) and all 1781 modules are identical to what booted, but this exact `vmlinuz` has not booted. Not installed on this machine. Needed `apt install debhelper` (for `debhelper-compat`). GitHub renames `~` to `.` in asset names, so `SHA256SUMS` uses the uploaded names. Verified with `gh release download` + `sha256sum -c`.
 
+## 2026-11-16
+
+- 12:23: **Built and installed mainline `7.4.0-rc3`** (torvalds `aebb72744764`, gcc 16.2.0) with `~/bin/kernel-build` in `~/linux`. That script is a local copy, not the `intel/scripts/` one: it does no build-ID stamp and no install record, so `kernel-boot-check` does not apply here. `make install` writes only `/boot/vmlinux-7.4.0-rc3` and no DTB, so `c630-menu` skipped the kernel. Fixed by hand: copied it to `/boot/vmlinuz-7.4.0-rc3` and installed `arch/arm64/boot/dts/qcom/sdm850-lenovo-yoga-c630.dtb` to `/usr/lib/linux-image-7.4.0-rc3/qcom/` (same DTB as rc2, `d53b6c01623c3bd5…`), then reran `c630-menu`. `grub-script-check` passes. Initrd 53 MB. The default is still `7.4.0-rc2-00859-g23c62304dde2` (`/etc/default/c630-menu`). Next: a one-time boot via `c630-menu --once c630-7.4.0-rc3`. Not yet booted.
+
 ## Next
 
 - Fix the resolv.conf fight for good: let NetworkManager manage the USB Ethernet (see AUDIT).
