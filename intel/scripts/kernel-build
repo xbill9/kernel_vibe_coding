@@ -114,10 +114,45 @@ set_grub_default() {
   fi
 }
 
+# DKMS modules registered on this machine, one name/version per line.
+dkms_modules() {
+  local dkms
+  dkms=$(PATH=$PATH:/usr/sbin:/sbin command -v dkms) || return 0
+  sudo "$dkms" status 2>/dev/null |
+    sed -n 's|^\([^/,: ]\{1,\}/[^,: ]\{1,\}\)[,:].*|\1|p' | sort -u
+}
+
+# `make install` exports KERNELRELEASE into the /etc/kernel/postinst.d hooks;
+# the dkms hook inherits it and NVIDIA's Makefile fails, which stops run-parts
+# before the initramfs and grub hooks. With DKMS modules present, install by
+# hand and run every tool in a clean environment.
+install_kernel() {
+  local mods m flag
+  local E=(env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root)
+  mapfile -t mods < <(dkms_modules)
+  if (( ${#mods[@]} == 0 )); then
+    sudo make install        # Debian installkernel: initramfs + update-grub
+    return
+  fi
+  echo "DKMS modules ${mods[*]}: installing in a clean environment"
+  sudo cp arch/x86/boot/bzImage "/boot/vmlinuz-$release"
+  sudo cp System.map "/boot/System.map-$release"
+  sudo cp .config "/boot/config-$release"
+  for m in "${mods[@]}"; do
+    # build --force first: install --force alone reuses a cached build.
+    sudo "${E[@]}" dkms build "$m" -k "$release" --force
+    sudo "${E[@]}" dkms install "$m" -k "$release" --force
+  done
+  flag=-c
+  [[ -e /boot/initrd.img-$release ]] && flag=-u
+  sudo "${E[@]}" update-initramfs "$flag" -k "$release"
+  sudo "${E[@]}" update-grub
+}
+
 if (( INSTALL )); then
   # Stripped modules keep .BTF but drop DWARF: the initrd is ~90MB, not ~640MB.
   sudo make -j"$JOBS" INSTALL_MOD_STRIP=1 modules_install
-  sudo make install          # Debian installkernel: initramfs + update-grub
+  install_kernel
   set_grub_default
   # The bzImage header carries the version string; confirm /boot has this build.
   if ! file -bL "/boot/vmlinuz-$release" | grep -qF "$uts"; then

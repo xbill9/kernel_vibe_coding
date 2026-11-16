@@ -61,6 +61,8 @@ sudo $E update-initramfs -c -k $K      # -u if it already exists
 sudo $E update-grub
 ```
 
+🟢 `scripts/kernel-build` does this step when `dkms status` lists any module: it copies the three files, runs `dkms build --force` then `dkms install --force` for each module, then `update-initramfs` and `update-grub`, all under `env -i`. With no DKMS modules it runs `sudo make install`.
+
 - Do not call `arch/x86/boot/install.sh` directly. It falls through to the LILO path and copies nothing.
 - **Rebuilding the same kernel release:** `dkms install --force` only reinstalls the cached build from `/var/lib/dkms`. Run `dkms build nvidia/$V -k $K --force` first, then `dkms install ... --force`.
 - A stale module fails with `modprobe: Exec format error` and repeated `x86/modules: Invalid relocation target, existing value is nonzero` in dmesg. `MODVERSIONS` is off, so vermagic alone does not catch it (seen on `gpu` and `yogagpu`, 2026-11-13).
