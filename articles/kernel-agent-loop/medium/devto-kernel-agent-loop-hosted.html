@@ -309,6 +309,14 @@ blanks Debian's signing keys and sets
 <code>CONFIG_RUST=y</code> and <code>CONFIG_DEBUG_INFO_BTF=y</code>. A
 full Debian package build of 7.4-rc1 on the Yoga 9i took 34 minutes 28
 seconds of wall time.</p>
+<p>Every build also carries a build ID,
+<code>KBUILD_BUILD_VERSION=&lt;n&gt;-&lt;8 random hex&gt;</code>, so
+<code>uname -v</code> names the exact build. The script stops if the ID
+is missing from <code>include/generated/utsversion.h</code> after
+<code>make</code> or from <code>/boot/vmlinuz-&lt;rel&gt;</code> after
+install, then writes the expected <code>uname -v</code> to
+<code>~/.local/state/kernel-build/installed</code>. Step 5 checks it
+first.</p>
 <hr />
 <h4 id="step-4--install">Step 4 — Install</h4>
 <p>The install step is where most of the runbook's rules live, because a
@@ -340,12 +348,30 @@ hook inherits it, and the NVIDIA build fails on an empty
 <code>update-initramfs</code> and <code>update-grub</code> in a clean
 <code>env -i</code> instead.</p>
 <hr />
-<h4 id="step-5--boot-and-feed-the-logs-back">Step 5 — Boot and Feed the
-Logs Back</h4>
-<p>After the reboot the agent gets one prompt: "check boot kernel and
-system logs for any issues". It reads the kernel version, the taint
-flags, the error log, kernel warnings and failed units, then sorts what
-it found:</p>
+<h4 id="step-5--boot-confirm-the-build-then-read-the-logs">Step 5 —
+Boot, Confirm the Build, Then Read the Logs</h4>
+<p>The first assertion after a reboot is the build ID.
+<code>tainted = 0</code> describes whichever kernel is running, and that
+can be an older build: a rebuild of the same release installs over the
+same <code>/boot</code> and <code>/lib/modules</code> paths, and a
+suspend and resume keeps the old kernel in memory. On 2026-11-14 the
+Yoga 9i booted build <code>#15</code> at 16:49, build <code>#16</code>
+was installed at 17:18, and the next morning's checks read
+<code>#15</code>.</p>
+<p><code>kernel-boot-check</code> compares <code>uname -v</code> with
+the install record before it runs anything else:</p>
+<pre><code>$ kernel-boot-check
+# running kernel is build 17-1b4c2939 (v7.4-rc3), installed 2026-11-15T19:19:40-05:00
+# captured 2026-11-16T09:59:03-05:00 on yoga9i
+$ uname -r -v
+7.4.0-rc3-mainline #17-1b4c2939 SMP PREEMPT_DYNAMIC Sun Nov 15 19:12:11 EST 2026</code></pre>
+<p>On a mismatch it prints both strings and exits 1, and the agent
+records nothing from that boot. Exit 2 means there is no install record.
+Only on a match does it go on to the health checks.</p>
+<p>Then the agent gets one prompt: "check boot kernel and system logs
+for any issues". It reads the taint flags, the error log, kernel
+warnings and failed units, then sorts what it found. On the 7.4-rc2 boot
+of 2026-11-15, build <code>#15</code>, it read:</p>
 <pre><code>$ uname -r -v
 7.4.0-rc2-mainline+ #15 SMP PREEMPT_DYNAMIC Sat Nov 14 15:54:28 EST 2026
 $ cat /proc/sys/kernel/tainted
@@ -410,9 +436,11 @@ the Yoga 9i each record a date, a measurement and a "How to apply"
 line:</p>
 <p><img src="https://raw.githubusercontent.com/xbill9/kernel_vibe_coding/main/articles/kernel-agent-loop/medium/img/devto-kernel-agent-loop-table-3.png"
 alt="Table: Memory, What it changed in the loop" /></p>
-<p>The first two are now code in <code>kernel-build</code>. A rule that
-lives in a script runs every time, on every machine, whether or not the
-agent reads the note.</p>
+<p>The first two are now code in <code>kernel-build</code>, and so is
+the build ID: the morning of checks against build <code>#15</code>
+became a stamp in <code>kernel-build</code> and an exit code in
+<code>kernel-boot-check</code>. A rule that lives in a script runs every
+time, on every machine, whether or not the agent reads the note.</p>
 <hr />
 <h4 id="step-8--the-same-loop-on-arm-and-android">Step 8 — The Same Loop
 on ARM and Android</h4>
@@ -467,9 +495,12 @@ install. The results were:</p>
 modules: an 88MB initrd against 641MB unstripped.</li>
 <li>🟢 The new build became the GRUB default from the script, checked
 against <code>grub.cfg</code>.</li>
-<li>🟢 A boot and log check by the agent: taint 0, no oops or warnings,
-58 of 62 kernel error lines from the BIOS, clean suspend and
-resume.</li>
+<li>🟢 Every build carries a build ID in <code>uname -v</code>, and
+<code>kernel-boot-check</code> matches it before any other check: build
+<code>#17-1b4c2939</code> of 7.4-rc3 on 2026-11-16.</li>
+<li>🟢 A boot and log check by the agent on 7.4-rc2 build
+<code>#15</code>: taint 0, no oops or warnings, 58 of 62 kernel error
+lines from the BIOS, clean suspend and resume.</li>
 <li>🟢 A 7.4-rc2 sound regression fixed locally with the same line as
 the upstream fix, <code>d00ba321499c</code>, which arrived the next
 day.</li>
@@ -482,8 +513,10 @@ change, as the kernel requires.</li>
 </ul>
 <p>Scope: one Lenovo Yoga 9i (i7-1360P) on Debian with GCC 16.2.0,
 mainline 7.4-rc2, Claude Code 2.1.325, boot and logs checked on
-2026-11-15. The ARM and Android work is from the same repo, measured on
-those machines and written up in the articles below.</p>
+2026-11-15. The build ID check ran on 7.4-rc3 build
+<code>#17-1b4c2939</code> on 2026-11-16. The ARM and Android work is
+from the same repo, measured on those machines and written up in the
+articles below.</p>
 <p>The strategy for kernel development with a coding agent was validated
 with an incremental step by step approach.</p>
 <hr />

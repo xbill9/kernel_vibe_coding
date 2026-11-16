@@ -1,0 +1,76 @@
+# kernel-boot-check on yoga9i, captured 2026-11-16T09:59:03-05:00; install record ~/.local/state/kernel-build/installed then the check, verbatim
+$ cat ~/.local/state/kernel-build/installed
+RELEASE=7.4.0-rc3-mainline
+UTS_VERSION=#17-1b4c2939 SMP PREEMPT_DYNAMIC Sun Nov 15 19:12:11 EST 2026
+BUILD_ID=17-1b4c2939
+SOURCE=v7.4-rc3
+COMMIT=aebb7274476403040d582c61478df8f4a7bf9cd3
+DATE=2026-11-15T19:19:40-05:00
+$ kernel-boot-check; echo "exit $?"
+# running kernel is build 17-1b4c2939 (v7.4-rc3), installed 2026-11-15T19:19:40-05:00
+# captured 2026-11-16T09:59:03-05:00 on yoga9i
+$ uname -r -v
+7.4.0-rc3-mainline #17-1b4c2939 SMP PREEMPT_DYNAMIC Sun Nov 15 19:12:11 EST 2026
+$ cat /proc/sys/kernel/tainted
+0
+$ systemctl is-system-running
+running
+$ journalctl -k -b -p err --no-pager | wc -l
+61
+$ journalctl -k -b --no-pager | grep -cE "Oops|BUG:|WARNING:|Call Trace|soft lockup|rcu.*stall|hung task"
+0
+$ journalctl -k -b -p err --no-pager | sed "s/^.*kernel: //" | sort | uniq -c | sort -rn
+     29 ACPI Error: AE_ALREADY_EXISTS, During name lookup/catalog (20260408/psobject-220)
+      3 i2c_hid_acpi i2c-WACF2200:00: device returned incorrect report (0 vs 11 expected)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.SS04._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.SS03._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.SS02._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.SS01._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.SS01._PLD], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS10._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS10._PLD], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS09._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS09._PLD], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS08._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS08._PLD], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS07._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS06._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS06._PLD], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS05._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS04._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS04._PLD], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS03._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS03._PLD], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS02._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS02._PLD], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.XHCI.RHUB.HS01._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.TXHC.RHUB.SS04._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.TXHC.RHUB.SS03._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.TXHC.RHUB.SS03._PLD], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.TXHC.RHUB.SS02._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.TXHC.RHUB.SS02._PLD], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.TXHC.RHUB.SS01._UPC], AE_ALREADY_EXISTS (20260408/dswload2-326)
+      1 ACPI BIOS Error (bug): Failure creating named object [\_SB.PC00.TXHC.RHUB.SS01._PLD], AE_ALREADY_EXISTS (20260408/dswload2-326)
+$ systemctl --failed --no-legend
+$ systemctl --user --failed --no-legend
+● gnome-software.service loaded failed failed GNOME Software
+exit 0
+
+# intel/docs/KERNEL-INSTALL.md Step 5, verbatim at f503d4f
+#### Step 5 — Confirm the booted kernel is the new build
+
+`tainted = 0` says the running kernel is clean. It does not say the running kernel is the one just built. A rebuild of the same release installs over `/boot/vmlinuz-<rel>` and `/lib/modules/<rel>`, and a suspend and resume keeps the old kernel running. On 2026-11-14 the Yoga 9i booted `#15` at 16:49, `#16` was installed at 17:18, and the next morning's checks read `#15`.
+
+`kernel-build` stamps every build with a build ID: `KBUILD_BUILD_VERSION=<n>-<8 random hex>`, so `uname -v` reads `#17-3fa9c2d1 SMP PREEMPT_DYNAMIC ...`. It stops if the ID is missing from `include/generated/utsversion.h` after `make`, or from the version string of `/boot/vmlinuz-<rel>` after install. It then writes the release, the full `uname -v` string, the source and the commit to `~/.local/state/kernel-build/installed`.
+
+After the reboot, run the check before recording anything:
+
+```sh
+kernel-boot-check
+```
+
+If `uname -r` or `uname -v` differs from the record, it prints both, prints nothing else and exits 1. Results from that boot belong to a different kernel; reboot and run it again. On a match it prints the build ID, then the taint flags, error counts, kernel warnings and failed units.
+
+The worst case, `#99999-ffffffff SMP PREEMPT_DYNAMIC` plus the date, is 64 characters, the limit the kernel's `cut -b -64` allows.
+
+---

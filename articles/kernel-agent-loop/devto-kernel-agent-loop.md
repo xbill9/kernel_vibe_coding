@@ -51,6 +51,9 @@ install                stripped modules, initramfs, GRUB        │
 boot                   default entry, or a one-time entry       │
  │                                                              │
  ▼                                                              │
+confirm the build      uname -v matches the stamped build ID    │
+ │                                                              │
+ ▼                                                              │
 read the logs          dmesg, journalctl, taint, failed units   │
  │                                                              │
  ▼                                                              │
@@ -149,6 +152,8 @@ v7.4-rc2-716-g23c62304dde2
 
 On a fresh tree it copies `/boot/config-$(uname -r)`, blanks Debian's signing keys and sets `LOCALVERSION=-mainline`. The working config has `CONFIG_RUST=y` and `CONFIG_DEBUG_INFO_BTF=y`. A full Debian package build of 7.4-rc1 on the Yoga 9i took 34 minutes 28 seconds of wall time.
 
+Every build also carries a build ID, `KBUILD_BUILD_VERSION=<n>-<8 random hex>`, so `uname -v` names the exact build. The script stops if the ID is missing from `include/generated/utsversion.h` after `make` or from `/boot/vmlinuz-<rel>` after install, then writes the expected `uname -v` to `~/.local/state/kernel-build/installed`. Step 5 checks it first.
+
 ---
 
 #### Step 4 — Install
@@ -177,9 +182,23 @@ GRUB_DEFAULT="gnulinux-advanced-c4ade253-cb80-4f6c-a4b2-0a25e3581117>gnulinux-7.
 
 ---
 
-#### Step 5 — Boot and Feed the Logs Back
+#### Step 5 — Boot, Confirm the Build, Then Read the Logs
 
-After the reboot the agent gets one prompt: "check boot kernel and system logs for any issues". It reads the kernel version, the taint flags, the error log, kernel warnings and failed units, then sorts what it found:
+The first assertion after a reboot is the build ID. `tainted = 0` describes whichever kernel is running, and that can be an older build: a rebuild of the same release installs over the same `/boot` and `/lib/modules` paths, and a suspend and resume keeps the old kernel in memory. On 2026-11-14 the Yoga 9i booted build `#15` at 16:49, build `#16` was installed at 17:18, and the next morning's checks read `#15`.
+
+`kernel-boot-check` compares `uname -v` with the install record before it runs anything else:
+
+```
+$ kernel-boot-check
+# running kernel is build 17-1b4c2939 (v7.4-rc3), installed 2026-11-15T19:19:40-05:00
+# captured 2026-11-16T09:59:03-05:00 on yoga9i
+$ uname -r -v
+7.4.0-rc3-mainline #17-1b4c2939 SMP PREEMPT_DYNAMIC Sun Nov 15 19:12:11 EST 2026
+```
+
+On a mismatch it prints both strings and exits 1, and the agent records nothing from that boot. Exit 2 means there is no install record. Only on a match does it go on to the health checks.
+
+Then the agent gets one prompt: "check boot kernel and system logs for any issues". It reads the taint flags, the error log, kernel warnings and failed units, then sorts what it found. On the 7.4-rc2 boot of 2026-11-15, build `#15`, it read:
 
 ```
 $ uname -r -v
@@ -242,7 +261,7 @@ Every pass ends with a file change. The four kernel memory files on the Yoga 9i 
 | `kernel-install-nvidia-dkms` | NVIDIA machines install in a clean `env -i` |
 | `kernel-7.4-soc-rtd-flex-fix` | the local ASoC patch is dropped once upstream has it |
 
-The first two are now code in `kernel-build`. A rule that lives in a script runs every time, on every machine, whether or not the agent reads the note.
+The first two are now code in `kernel-build`, and so is the build ID: the morning of checks against build `#15` became a stamp in `kernel-build` and an exit code in `kernel-boot-check`. A rule that lives in a script runs every time, on every machine, whether or not the agent reads the note.
 
 ---
 
@@ -275,6 +294,7 @@ On the Pixel the feedback comes from upstream instead of `dmesg`. `missing_fixes
 | Instructions | the chat | `AGENTS.md`, `CLAUDE.md`, runbooks, memory |
 | Build | 🥉 the human runs it | 🥇 `kernel-build`, every core |
 | Install | 🥉 copy-pasted commands | 🥇 stripped modules, GRUB default, DKMS rules |
+| Booted kernel | assumed to be the new build | 🥇 `uname -v` matched to the build ID, first |
 | Result checked by | the human, by hand | 🥇 the agent, from logs and counts the shell computes |
 | A lesson learned | lost when the chat ends | 🥇 a memory file, then a runbook, then a script |
 | Sign-off and submission | 🥇 human | 🥇 human, as `coding-assistants.rst` requires |
@@ -295,13 +315,14 @@ The goal of this article was to show a coding agent doing mainline kernel work i
 
 - 🟢 Mainline 7.4-rc2 built and installed on a Yoga 9i, with stripped modules: an 88MB initrd against 641MB unstripped.
 - 🟢 The new build became the GRUB default from the script, checked against `grub.cfg`.
-- 🟢 A boot and log check by the agent: taint 0, no oops or warnings, 58 of 62 kernel error lines from the BIOS, clean suspend and resume.
+- 🟢 Every build carries a build ID in `uname -v`, and `kernel-boot-check` matches it before any other check: build `#17-1b4c2939` of 7.4-rc3 on 2026-11-16.
+- 🟢 A boot and log check by the agent on 7.4-rc2 build `#15`: taint 0, no oops or warnings, 58 of 62 kernel error lines from the BIOS, clean suspend and resume.
 - 🟢 A 7.4-rc2 sound regression fixed locally with the same line as the upstream fix, `d00ba321499c`, which arrived the next day.
 - 🟢 One repo for the loop on Intel, two Windows-on-ARM laptops and a Pixel 3a.
 - ⚠️ NVIDIA machines still need the hand install in a clean environment.
 - ⚠️ The agent never signs off or submits. A human reviews every change, as the kernel requires.
 
-Scope: one Lenovo Yoga 9i (i7-1360P) on Debian with GCC 16.2.0, mainline 7.4-rc2, Claude Code 2.1.325, boot and logs checked on 2026-11-15. The ARM and Android work is from the same repo, measured on those machines and written up in the articles below.
+Scope: one Lenovo Yoga 9i (i7-1360P) on Debian with GCC 16.2.0, mainline 7.4-rc2, Claude Code 2.1.325, boot and logs checked on 2026-11-15. The build ID check ran on 7.4-rc3 build `#17-1b4c2939` on 2026-11-16. The ARM and Android work is from the same repo, measured on those machines and written up in the articles below.
 
 The strategy for kernel development with a coding agent was validated with an incremental step by step approach.
 
