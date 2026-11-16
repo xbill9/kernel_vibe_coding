@@ -1,0 +1,10 @@
+# 2026-09-09: this machine runs on AC and is mostly stationary. Stability beats
+# power saving, so nothing is allowed to runtime-suspend. See the lid-freeze
+# notes. "bind" matters as well as "add": some drivers (MEI, the SOF audio
+# controller, nvidia) re-enable runtime PM when they probe, after the add event.
+# TEST=="power/control" skips nodes that have no runtime PM file (USB
+# interfaces, i2c adapters); writing to them only logs "Could not chase".
+# Revert: delete this file and reboot.
+ACTION=="add|bind", SUBSYSTEM=="pci", TEST=="power/control", ATTR{power/control}="on"
+ACTION=="add|bind", SUBSYSTEM=="usb", TEST=="power/control", ATTR{power/control}="on"
+ACTION=="add|bind", SUBSYSTEM=="i2c", TEST=="power/control", ATTR{power/control}="on"
