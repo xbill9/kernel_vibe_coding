@@ -18,7 +18,7 @@ Notes and scripts for running Debian on Windows-on-ARM laptops. **This repo live
 
 - Findings go in the topic doc: `c630/HARDWARE.md`, `QUIRKS.md`, `FIRMWARE.md`, `MODEM.md` or `WIFI.md`. `c630/LOG.md` gets a short dated entry that links to it.
 - LOG.md: newest last, `- HH:MM:` bullets under `## YYYY-MM-DD`, local time. Take the time from `date +%H:%M`, not a guess. Keep `## Next` at the bottom up to date.
-- Raw kernel logs go in `c630/logs/YYYY-MM-DD-<slug>.log`. A new file gets a line in the root `README.md` "Layout" block.
+- Raw kernel logs go in `c630/logs/YYYY-MM-DD-<slug>.log`. A new file gets a line in the `arm/README.md` "Layout" block.
 - **Mark what wasn't verified** ("Untested", "Not yet verified across a reboot", "## Hypotheses (not yet tested)"). Stating unverified things as fact has already cost rescue boots (`INCIDENT-2026-10-10.md`).
 - Style: short declarative sentences, tables for status, backticks for paths, commands and kernel messages, ISO dates, sha256 shortened to 16 hex digits followed by `…`.
 
@@ -35,4 +35,4 @@ Notes and scripts for running Debian on Windows-on-ARM laptops. **This repo live
 ## Git
 
 - Commit subject: `C630: <lowercase summary>`, with `;` joining several topics. Use the machine prefix for other machines.
-- **Push after every commit** (`main`, origin `xbill9/linux-arm-adventures`).
+- **Push after every commit** (`main`, origin `xbill9/kernel_vibe_coding`).
