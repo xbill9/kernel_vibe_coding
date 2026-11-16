@@ -73,9 +73,11 @@ Newest last. Times are local (EDT).
 ## 2026-11-16
 
 - 12:23: **Built and installed mainline `7.4.0-rc3`** (torvalds `aebb72744764`, gcc 16.2.0) with `~/bin/kernel-build` in `~/linux`. That script is a local copy, not the `intel/scripts/` one: it does no build-ID stamp and no install record, so `kernel-boot-check` does not apply here. `make install` writes only `/boot/vmlinux-7.4.0-rc3` and no DTB, so `c630-menu` skipped the kernel. Fixed by hand: copied it to `/boot/vmlinuz-7.4.0-rc3` and installed `arch/arm64/boot/dts/qcom/sdm850-lenovo-yoga-c630.dtb` to `/usr/lib/linux-image-7.4.0-rc3/qcom/` (same DTB as rc2, `d53b6c01623c3bd5…`), then reran `c630-menu`. `grub-script-check` passes. Initrd 53 MB. The default is still `7.4.0-rc2-00859-g23c62304dde2` (`/etc/default/c630-menu`). Next: a one-time boot via `c630-menu --once c630-7.4.0-rc3`. Not yet booted.
+- 12:27: Booted `7.4.0-rc3` (`#8`) with the one-time entry. Modem, adsp, cdsp and slpi `running`. Wi-Fi works (`dog`, DHCP, ping), but only from about 101 s. **The late Wi-Fi is not new in rc3**: rc2 and Debian 7.2.9 show the same delay. Cause: `tqftpserv-populate-readwrite.service` waits 90 s for a `persist` partition that doesn't exist. See [WIFI.md](WIFI.md#problem-wi-fi-appears-about-95-s-after-boot). The fix (mask) is not applied yet. The previous boot's two Wi-Fi drops were `gsd-power` auto-suspends, each followed by `failed to install key ... -110` on deauth. No full rc3 checkout yet.
 
 ## Next
 
+- Mask `tqftpserv-populate-readwrite.service` and confirm Wi-Fi at about 15 s after a reboot ([WIFI.md](WIFI.md#problem-wi-fi-appears-about-95-s-after-boot)).
 - Fix the resolv.conf fight for good: let NetworkManager manage the USB Ethernet (see AUDIT).
 - Built-in mic: voice test on DMIC2/DMIC3, then mic bias/gain, then a UCM `Mic (internal)` device.
 - Screen dim: confirm it stays off on `balanced` over a longer idle and across a reboot.

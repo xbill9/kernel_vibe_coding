@@ -47,6 +47,23 @@ curl -s --interface wlan0 -o /dev/null -w '%{http_code} %{redirect_url}\n' http:
 
 **Watch for the USB tether.** When the iPhone is USB-tethered (`enx…`, 172.20.10.0/28), its default route has metric 100, compared with 20600 for `wlan0`. The browser and the connectivity check use the tether, so the portal never appears. Unplug it (or `nmcli con down "Wired connection 1"`), then open `http://neverssl.com` and accept.
 
+## Problem: Wi-Fi appears about 95 s after boot
+
+On every kernel (Debian `7.2.9+deb14-arm64`, mainline `7.4.0-rc2-00859`, `7.4.0-rc3`), `ath10k_snoc` starts about 85 s after the modem is up. Until then there is no `wlan0`. Boot of 2026-11-16 (`7.4.0-rc3`, monotonic seconds):
+
+```
+[ 12.0] remoteproc remoteproc3: remote processor 4080000.remoteproc is now up
+[ 95.9] systemd[1]: Timed out waiting for device dev-disk-by\x2dpartlabel-persist.device - /dev/disk/by-partlabel/persist.
+[ 95.9] systemd[1]: Dependency failed for tqftpserv-populate-readwrite.service - Populate tqftp readwrite data from persist partition.
+[ 95.9] systemd[1]: Started tqftpserv.service - QRTR TFTP service.
+[ 97.7] ath10k_snoc 18800000.wifi: qmi chip_id 0x30214 ...
+[101.5] ath10k_snoc 18800000.wifi: invalid MAC address; choosing random
+```
+
+Cause: the `tqftpserv` package ships `tqftpserv-populate-readwrite.service`, ordered `Before=tqftpserv.service`, which `Requires=` and waits for `/dev/disk/by-partlabel/persist`. The C630's UFS has no `persist` partition, so systemd waits for its default 90 s device timeout. `tqftpserv` serves the WLAN firmware to the modem, so Wi-Fi waits as well. The script only copies `rfs/msm/mpss/*` from `persist`, so on this machine it does nothing.
+
+Fix (proposed, **not applied, untested**): `sudo systemctl mask tqftpserv-populate-readwrite.service`. Undo with `systemctl unmask`. Expected: `ath10k_snoc` at about 15 s. Not a boot-path change: it only affects userspace services.
+
 ## Gotchas
 
 - `iw` is installed but lives in `/usr/sbin`, which isn't on the user `PATH`. Call it as `/usr/sbin/iw`.
