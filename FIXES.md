@@ -12,6 +12,9 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
+| F13 | ❌ | debian (Yoga C630) | `make loop` stops: no install record | none yet |
+| F12 | ❌ | debian (Yoga C630) | `Bluetooth: hci0: unexpected event for opcode 0x0000` | none yet |
+| F11 | 🟢 | debian (Yoga C630) | built-in Wi-Fi appears ~95 s after boot | `34d4e11` (mask) |
 | F10 | ❌ | debian (Yoga 7 14IRL8) | `Driver 'pcspkr' is already registered` at boot | none yet |
 | F9 | ❌ | debian (Yoga 7 14IRL8) | systemd `bpf-restrict-fs` cannot load: no kernel BTF | none yet |
 | F8 | 🟢 | samsung13 | `make loop` reports hashed `%p` pointers as new error lines | `94316e9` |
@@ -39,6 +42,33 @@ Take the next number and add it to the top of the index and as a section below. 
 ```
 
 ---
+
+### F13 — `make loop` stops on the C630: no install record
+
+- Status: ❌ open
+- Machine / kernel: debian (Yoga C630), 7.4.0-rc3 `#9`
+- Symptom: `no install record at ~/.local/state/kernel-build/installed; install with kernel-build first`, then `make: *** [Makefile:46: loop] Error 2`
+- Cause: on the C630, `~/bin/kernel-build` is a local copy (1732 bytes, 2026-11-14), not the `intel/scripts/` symlink. It stamps no build ID and writes no install record. It also leaves `/boot/vmlinux-<rel>` with no `vmlinuz` and no DTB, so `c630-menu` skips the kernel until both are added by hand (`arm/c630/LOG.md`, 2026-11-16).
+- Fix: none. Candidate: link the repo's `kernel-build` here (`make install-scripts`) with an arm64 install step: `Image` → `vmlinuz-<rel>`, DTB → `/usr/lib/linux-image-<rel>/`, `c630-menu`, never the default. Untested.
+- Checked: 2026-11-16, build checked by hand instead: `uname -v` `#9 ... Mon Nov 16 12:42:29`, installed 12:43. `intel/scripts/kernel-log-compare` run on its own against `#8`.
+
+### F12 — Bluetooth `unexpected event for opcode 0x0000`
+
+- Status: ❌ open, harmless as far as seen
+- Machine / kernel: debian (Yoga C630), 7.4.0-rc3 `#9` against `#8` (boot -1)
+- Symptom: `Bluetooth: hci0: unexpected event for opcode 0x0000` at 10.8 s, once, after `QCA setup on UART is completed` and the second `setting up wcn399x`
+- Cause: unknown. Not seen in the 8 earlier boots (rc3 `#8`, rc2, Debian 7.2.9), so it may be a one-off.
+- Fix: none
+- Checked: 2026-11-16, `bluetoothctl show`: `Powered: yes`; `hci0 UP RUNNING`. Pairing untested.
+
+### F11 — C630 built-in Wi-Fi appears ~95 s after boot
+
+- Status: 🟢
+- Machine / kernel: debian (Yoga C630), every kernel (Debian 7.2.9, 7.4.0-rc2, 7.4.0-rc3)
+- Symptom: no `wlan0` until about 100 s. `Timed out waiting for device dev-disk-by\x2dpartlabel-persist.device` at 95.9 s, then `Started tqftpserv.service`, then `ath10k_snoc ... qmi chip_id` at 97.7 s.
+- Cause: `tqftpserv-populate-readwrite.service` (from the `tqftpserv` package) is `Before=tqftpserv.service` and `Requires=` a `persist` partition the C630 does not have. `tqftpserv` serves the WLAN firmware to the modem. See `arm/c630/WIFI.md`.
+- Fix: `34d4e11`, `systemctl mask tqftpserv-populate-readwrite.service`
+- Checked: 2026-11-16, 7.4.0-rc3 `#9`: `ath10k_snoc ... qmi chip_id` at 13.0 s, `wlan0: associated` at 20.8 s.
 
 ### F10 — `pcspkr` driver registered twice
 

@@ -77,11 +77,11 @@ Newest last. Times are local (EDT).
 - 12:40: Masked `tqftpserv-populate-readwrite.service` ([WIFI.md](WIFI.md#problem-wi-fi-appears-about-95-s-after-boot)). Not yet verified across a reboot. The USB Wi-Fi the user plugged in (RT5370, `148f:5370`) gets no interface on rc3: the config has no `CONFIG_RT2X00`.
 - 12:41: Enabled the RT5370 USB Wi-Fi driver for the next mainline build: `CONFIG_RT2X00=m`, `CONFIG_RT2800USB=m`, `CONFIG_RT2800USB_RT53XX=y` in `~/linux/.config` (old copy `.config.pre-rt2800`). `148f:5370` is in `rt2800usb`'s RT53XX ID table, and `/lib/firmware/rt2870.bin` is present. Not built yet. Untested.
 - 12:44: Rebuilt `7.4.0-rc3` with `--no-pull` (same tree, plus rt2800usb) and installed it over the running rc3. Copied `vmlinuz` and the DTB by hand again, reran `c630-menu`, and `grub-script-check` passes. `vmlinuz-7.4.0-rc3` is now `c815e07e4e9aa6a6…`, the initrd `878044aff9187f9d…`. `rt2800usb.ko` is installed with alias `usb:v148Fp5370`. The default is still rc2. Not booted yet.
+- 18:29: Booted rebuilt `7.4.0-rc3` `#9` (one-time entry). **Wi-Fi fix verified**: `ath10k_snoc` at 13.0 s (was 97.7 s), associated at 20.8 s ([WIFI.md](WIFI.md#problem-wi-fi-appears-about-95-s-after-boot)). Sound card present, Bluetooth `UP RUNNING`. `make loop` stops with no install record ([FIXES.md](../../FIXES.md) F13). `kernel-log-compare` against `#8` reports 2 new lines: `slim-ngd: QMI wait timeout` (in 4 of the 5 earlier boots, so not new) and a Bluetooth `opcode 0x0000` event (F12). RT5370 not plugged in, so untested.
 
 ## Next
 
-- Next mainline build: plug in the RT5370 and confirm `rt2800usb` binds and gives a `wlx…` interface.
-- After the next reboot, confirm `ath10k_snoc` starts at about 15 s (`tqftpserv-populate-readwrite` is masked) ([WIFI.md](WIFI.md#problem-wi-fi-appears-about-95-s-after-boot)).
+- Plug in the RT5370 on rc3 `#9` (driver now built) and confirm `rt2800usb` binds and gives a `wlx…` interface.
 - Fix the resolv.conf fight for good: let NetworkManager manage the USB Ethernet (see AUDIT).
 - Built-in mic: voice test on DMIC2/DMIC3, then mic bias/gain, then a UCM `Mic (internal)` device.
 - Screen dim: confirm it stays off on `balanced` over a longer idle and across a reboot.

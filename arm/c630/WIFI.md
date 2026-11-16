@@ -62,7 +62,7 @@ On every kernel (Debian `7.2.9+deb14-arm64`, mainline `7.4.0-rc2-00859`, `7.4.0-
 
 Cause: the `tqftpserv` package ships `tqftpserv-populate-readwrite.service`, ordered `Before=tqftpserv.service`, which `Requires=` and waits for `/dev/disk/by-partlabel/persist`. The C630's UFS has no `persist` partition, so systemd waits for its default 90 s device timeout. `tqftpserv` serves the WLAN firmware to the modem, so Wi-Fi waits as well. The script only copies `rfs/msm/mpss/*` from `persist`, so on this machine it does nothing.
 
-Fix: `sudo systemctl mask tqftpserv-populate-readwrite.service`, applied 2026-11-16 (`is-enabled` → `masked`; `tqftpserv.service` still `enabled`). **Not yet verified across a reboot.** Undo with `systemctl unmask`. Expected: `ath10k_snoc` at about 15 s. Not a boot-path change: it only affects userspace services.
+Fix: `sudo systemctl mask tqftpserv-populate-readwrite.service`, applied 2026-11-16. **Verified** on 7.4.0-rc3 `#9`: `ath10k_snoc` at 13.0 s, `wlan0: associated` at 20.8 s. Undo with `systemctl unmask`. Expected: `ath10k_snoc` at about 15 s. Not a boot-path change: it only affects userspace services.
 
 ## Gotchas
 
