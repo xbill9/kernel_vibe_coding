@@ -5,6 +5,7 @@ Kernel scripts, tools and runbooks for every machine here, Intel and ARM, in one
 | Directory | Machines | What's in it |
 |---|---|---|
 | [intel/](intel/) | Yoga 9i (Raptor Lake-P), `gpu` (i7-5820K + RTX 3050) | mainline build script, hardware audit script, install runbook (stripped modules, GRUB default, NVIDIA DKMS) |
+| [intel/](intel/) | `build` (i7-3770, Ivy Bridge) | boot options tuned for build throughput, a benchmark ([intel/docs/BUILD-BOX-TUNING.md](intel/docs/BUILD-BOX-TUNING.md)) |
 | [arm/](arm/) | Lenovo Yoga C630 (SDM850), Samsung Galaxy Book Go (7c Gen 2) | Debian on Windows-on-ARM: boot menus, DTB patches, firmware staging, Wi-Fi/audio/BT fixes, systemd units, recovery runbooks |
 
 The Pixel 3a (`sargo`, msm-4.9) kernel, its eBPF backport tooling and the LineageOS 24.0 build and install scripts live in [xbill9/android_kernel_google_msm-4.9](https://github.com/xbill9/android_kernel_google_msm-4.9) (`backport-tools/`), cloned at `~/android_kernel_google_msm-4.9`. `~/bin/sargo-build` and `~/bin/sargo-install` link into that tree.
@@ -21,6 +22,9 @@ intel/
   scripts/kernel-log-compare this boot's logs against the last boot of another build: new, gone, counts
   scripts/hw-update         Claude audit of missing drivers, firmware and hardware tools (-p: report only)
   docs/KERNEL-INSTALL.md    build -> stripped install -> GRUB default -> NVIDIA DKMS; known 7.4-rc2 issues
+  docs/BUILD-BOX-TUNING.md  the `build` box: throughput boot options, before/after numbers
+  grub/90-build-perf.cfg    GRUB drop-in with those options
+  bench/build-box-bench     syscall cost and timed tinyconfig builds
 arm/
   README.md, CLAUDE.md      per-machine overview and the "don't break the boot" rules
   c630/                     Yoga C630: RECOVERY, HARDWARE, FIRMWARE, QUIRKS, WIFI, MODEM, LOG; scripts/, system/, stick/ (GRUB 2.12 + DTB)
