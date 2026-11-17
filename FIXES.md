@@ -12,11 +12,12 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
+| F14 | ❌ | debian (Yoga 7 14IRL8) | `pam_wtmpdb` cannot write `wtmp.db` at logout | none yet |
 | F13 | ⚠️ | debian (Yoga C630) | `make loop` stops: no install record | see F13 |
 | F12 | ❌ | debian (Yoga C630) | `Bluetooth: hci0: unexpected event for opcode 0x0000` | none yet |
 | F11 | 🟢 | debian (Yoga C630) | built-in Wi-Fi appears ~95 s after boot | `34d4e11` (mask) |
 | F10 | ❌ | debian (Yoga 7 14IRL8) | `Driver 'pcspkr' is already registered` at boot | none yet |
-| F9 | ❌ | debian (Yoga 7 14IRL8) | systemd `bpf-restrict-fs` cannot load: no kernel BTF | none yet |
+| F9 | 🟢 | debian (Yoga 7 14IRL8) | systemd `bpf-restrict-fs` cannot load: no kernel BTF | config: `DEBUG_INFO_BTF=y` |
 | F8 | 🟢 | samsung13 | `make loop` reports hashed `%p` pointers as new error lines | `94316e9` |
 | F7 | ❌ | yoga9i | Wacom digitizer: `device returned incorrect report (0 vs 11 expected)` | none yet |
 | F6 | ⚠️ | not yoga9i | runtime-PM udev rule logs ~40 `Could not chase` lines per boot | `7ed46de` |
@@ -42,6 +43,15 @@ Take the next number and add it to the top of the index and as a section below. 
 ```
 
 ---
+
+### F14 — `pam_wtmpdb` cannot write `wtmp.db` at logout
+
+- Status: ❌ open, not investigated
+- Machine / kernel: debian (Lenovo Yoga 7 14IRL8), 7.4.0-rc3 `#7-1a43c85b` (boot 0); absent on `#6-c3d1b926` (boot -1) and 7.3.4+deb14-amd64 (boot -2)
+- Symptom: `(sd-pam)[7727]: pam_wtmpdb(login:session): Updating logout time failed: attempt to write a readonly database`, 8 times at 09:03:27, one per `sd-pam` process. In the same boot `gkr-pam: couldn't unlock the login keyring` rose from 2 to 10.
+- Cause: unknown. `make loop` does not flag it, since it is not a kernel line; it shows as +12 in "all errors, whole journal". `/var/lib/wtmpdb/wtmp.db` links to `/var/log/wtmp.db`. The only change from `#6` is BTF (F9), which lets systemd's `bpf-restrict-fs` LSM enforce `RestrictFileSystems=` for the first time on a mainline build, so that is a candidate (untested).
+- Fix: none
+- Checked: `journalctl -b -N | grep -c pam_wtmpdb` on 2026-11-17: 8 on boot 0, 0 on boots -1 and -2.
 
 ### F13 — `make loop` stops on the C630: no install record
 
@@ -81,12 +91,12 @@ Take the next number and add it to the top of the index and as a section below. 
 
 ### F9 — systemd `bpf-restrict-fs` fails: no kernel BTF
 
-- Status: ❌ open
+- Status: 🟢
 - Machine / kernel: debian (Lenovo Yoga 7 14IRL8), 7.4.0-rc3 `#6-c3d1b926` against 7.3.4+deb14-amd64 `#1` (boot -1)
-- Symptom: `systemd[1]: bpf-restrict-fs: Failed to load BPF object: No such process`. On boot -1 the same step logged `bpf-restrict-fs: LSM BPF program attached`.
-- Cause: `~/linux/.config` has `CONFIG_DEBUG_INFO_NONE=y`, so `CONFIG_DEBUG_INFO_BTF` is off and `/sys/kernel/btf/vmlinux` does not exist; systemd's LSM program is CO-RE and needs it. Debian's config has `CONFIG_DEBUG_INFO_BTF=y`, and `bpf` is in the active LSM list on both kernels. `KERNEL-INSTALL.md` says the working config has BTF on, which is not true of this tree.
-- Fix: none yet. Candidate: `scripts/config -e DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT -e DEBUG_INFO_BTF`, full rebuild (pahole v1.32 is installed) — untested.
-- Checked: 2026-11-16, `ls /sys/kernel/btf/vmlinux` → no such file; `grep DEBUG_INFO ~/linux/.config`.
+- Symptom: `systemd[1]: bpf-restrict-fs: Failed to load BPF object: No such process`. On 7.3.4 the same step logged `bpf-restrict-fs: LSM BPF program attached`.
+- Cause: `~/linux/.config` had `CONFIG_DEBUG_INFO_NONE=y`, so `CONFIG_DEBUG_INFO_BTF` was off and `/sys/kernel/btf/vmlinux` did not exist; systemd's LSM program is CO-RE and needs it. Debian's config has `CONFIG_DEBUG_INFO_BTF=y`, and `bpf` is in the active LSM list on both kernels.
+- Fix: config change, not a commit: `scripts/config -d DEBUG_INFO_NONE -e DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT -e DEBUG_INFO_BTF -e DEBUG_INFO_BTF_MODULES`, then a full `NOPULL=1 make install` (2042 s on this machine). Stripped modules 118M, initrd 206M (201M before).
+- Checked: 2026-11-17 on `#7-1a43c85b`: `make feedback` exit 0; `/sys/kernel/btf/vmlinux` present; journal reads `bpf-restrict-fs: LSM BPF program attached`; `make loop` against `#6-c3d1b926` lists the error as `-1`, exit 0.
 
 ### F8 — `make loop` reports hashed pointers as new error lines
 
