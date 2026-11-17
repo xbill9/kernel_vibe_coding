@@ -42,6 +42,10 @@ To undo: `sudo rm /etc/default/grub.d/90-build-perf.cfg && sudo update-grub`, th
 | | Command line | `getppid` (ns/call) | `tinyconfig` build (s) |
 |---|---|---|---|
 | Before, 2026-11-16 | `ro quiet` | 318.2, 317.2, 318.1, 323.1, 320.6, 324.7 | 45.84, 46.16, 46.88 |
-| After | `ro quiet mitigations=off init_on_alloc=0 preempt=voluntary cpufreq.default_governor=performance` | untested: needs a reboot | untested: needs a reboot |
+| After, 2026-11-17 | `ro quiet mitigations=off init_on_alloc=0 preempt=voluntary cpufreq.default_governor=performance` | 56.6, 57.2, 57.2 | 44.90, 46.16, 45.68 |
 
-Source for both: `aebb72744764 Linux 7.4-rc3`.
+Both rows ran on the same kernel build, `#10-f7cb8763` (`kernel-boot-check` exit 0 before the after run), with source `aebb72744764 Linux 7.4-rc3`. After the reboot, `meltdown`, `mds` and `spectre_v2` all report `Vulnerable` and the governor reads `performance`.
+
+- 🟢 An empty system call dropped from 320.3 ns to 57.0 ns on average, 5.6 times faster.
+- ⚠️ The `tinyconfig` build went from 46.29 s to 45.58 s on average (1.5% faster). The two ranges overlap (45.84–46.88 s before, 44.90–46.16 s after), so the gain is within run-to-run spread. A compile spends almost all its time in the compiler, in user space, where these settings change nothing.
+- Workloads heavy in system calls, I/O and process creation gain the most; untested here beyond `tinyconfig`.
