@@ -11,6 +11,12 @@
 # Every build is stamped with a fresh build ID in uname -v
 # ("#<n>-<id> SMP ..."). The install is recorded in
 # $STATE_DIR/installed; kernel-boot-check compares the running kernel to it.
+#
+# arm64 (the Windows-on-ARM laptops in arm/): `make install` leaves only
+# /boot/vmlinux-<rel>, so the Image is also copied to /boot/vmlinuz-<rel> and
+# the DTBs go to /usr/lib/linux-image-<rel>/ (Debian's layout). If c630-menu
+# is installed it regenerates /boot/grub/c630.cfg. The default boot entry is
+# never changed there: boot the new build once with c630-menu --once.
 set -euo pipefail
 
 KSRC=${KSRC:-$HOME/linux}
@@ -149,15 +155,51 @@ install_kernel() {
   sudo "${E[@]}" update-grub
 }
 
+# arm64: add what `make install` leaves out, then rebuild the C630 boot menu.
+# c630.cfg is what the C630 firmware boots, not grub.cfg; its default is
+# pinned in /etc/default/c630-menu and is not touched here.
+install_arm64_extras() {
+  local menu
+  sudo cp arch/arm64/boot/Image "/boot/vmlinuz-$release"
+  sudo make INSTALL_DTBS_PATH="/usr/lib/linux-image-$release" dtbs_install
+  menu=$(PATH=$PATH:/usr/local/sbin:/usr/sbin command -v c630-menu) || {
+    echo "no c630-menu; boot entries left to the distro hooks"
+    return 0
+  }
+  sudo "$menu"
+  sudo grub-script-check /boot/grub/c630.cfg
+  if ! sudo grep -qF -- "--id c630-$release " /boot/grub/c630.cfg; then
+    echo "c630.cfg has no entry c630-$release" >&2
+    return 1
+  fi
+  echo "c630.cfg has c630-$release; boot it once with: sudo c630-menu --once c630-$release"
+}
+
+# Does the image in /boot carry this build's version string? The x86 bzImage
+# header has it where file(1) reads it; the arm64 Image is uncompressed.
+boot_image_is_this_build() {
+  local img=/boot/vmlinuz-$release
+  if [[ $ARCH == arm64 ]]; then
+    sudo grep -aqF -- "$uts" "$img"
+  else
+    file -bL "$img" | grep -qF -- "$uts"
+  fi
+}
+
+case $(uname -m) in aarch64) ARCH=arm64 ;; *) ARCH=x86 ;; esac
+
 if (( INSTALL )); then
   # Stripped modules keep .BTF but drop DWARF: the initrd is ~90MB, not ~640MB.
   sudo make -j"$JOBS" INSTALL_MOD_STRIP=1 modules_install
-  install_kernel
-  set_grub_default
-  # The bzImage header carries the version string; confirm /boot has this build.
-  if ! file -bL "/boot/vmlinuz-$release" | grep -qF "$uts"; then
-    echo "/boot/vmlinuz-$release is not build $KBUILD_BUILD_VERSION:" >&2
-    file -bL "/boot/vmlinuz-$release" | grep -o 'version [^,]*' >&2
+  if [[ $ARCH == arm64 ]]; then
+    sudo make install
+    install_arm64_extras
+  else
+    install_kernel
+    set_grub_default
+  fi
+  if ! boot_image_is_this_build; then
+    echo "/boot/vmlinuz-$release is not build $KBUILD_BUILD_VERSION" >&2
     exit 1
   fi
   record installed

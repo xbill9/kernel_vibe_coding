@@ -24,7 +24,7 @@ SCRIPTS := intel/scripts/kernel-build intel/scripts/kernel-boot-check \
 help:
 	@sed -n 's/^\([a-z-]*\):.*## \(.*\)/  make \1|\2/p' $(MAKEFILE_LIST) | column -t -s '|'
 
-install: ## build ~/linux and install it: stripped modules, GRUB default, build ID record
+install: ## build ~/linux and install it: stripped modules, GRUB default (arm64: c630-menu entry, default unchanged), build ID record
 	intel/scripts/kernel-build $(if $(NOPULL),--no-pull)
 
 install-scripts: ## symlink the loop's scripts into ~/bin, so repo edits are live

@@ -12,7 +12,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
-| F13 | ❌ | debian (Yoga C630) | `make loop` stops: no install record | none yet |
+| F13 | ⚠️ | debian (Yoga C630) | `make loop` stops: no install record | see F13 |
 | F12 | ❌ | debian (Yoga C630) | `Bluetooth: hci0: unexpected event for opcode 0x0000` | none yet |
 | F11 | 🟢 | debian (Yoga C630) | built-in Wi-Fi appears ~95 s after boot | `34d4e11` (mask) |
 | F10 | ❌ | debian (Yoga 7 14IRL8) | `Driver 'pcspkr' is already registered` at boot | none yet |
@@ -45,12 +45,12 @@ Take the next number and add it to the top of the index and as a section below. 
 
 ### F13 — `make loop` stops on the C630: no install record
 
-- Status: ❌ open
+- Status: ⚠️ fix committed, not yet checked across a reboot
 - Machine / kernel: debian (Yoga C630), 7.4.0-rc3 `#9`
 - Symptom: `no install record at ~/.local/state/kernel-build/installed; install with kernel-build first`, then `make: *** [Makefile:46: loop] Error 2`
-- Cause: on the C630, `~/bin/kernel-build` is a local copy (1732 bytes, 2026-11-14), not the `intel/scripts/` symlink. It stamps no build ID and writes no install record. It also leaves `/boot/vmlinux-<rel>` with no `vmlinuz` and no DTB, so `c630-menu` skips the kernel until both are added by hand (`arm/c630/LOG.md`, 2026-11-16).
-- Fix: none. Candidate: link the repo's `kernel-build` here (`make install-scripts`) with an arm64 install step: `Image` → `vmlinuz-<rel>`, DTB → `/usr/lib/linux-image-<rel>/`, `c630-menu`, never the default. Untested.
-- Checked: 2026-11-16, build checked by hand instead: `uname -v` `#9 ... Mon Nov 16 12:42:29`, installed 12:43. `intel/scripts/kernel-log-compare` run on its own against `#8`.
+- Cause: on the C630, `~/bin/kernel-build` was a stale local copy (1732 bytes, 2026-11-14) from before build IDs, not the repo symlink. It wrote no install record. The repo script would also have failed here: its `/boot` check uses `file(1)`, which reads the version only from an x86 bzImage, and on arm64 `make install` leaves only `/boot/vmlinux-<rel>`, with no `vmlinuz` or DTB, so `c630-menu` skips the kernel.
+- Fix: `intel/scripts/kernel-build` on arm64 copies `arch/arm64/boot/Image` to `/boot/vmlinuz-<rel>`, runs `dtbs_install` into `/usr/lib/linux-image-<rel>/`, reruns `c630-menu` and `grub-script-check` and confirms the `c630-<rel>` entry, then checks the build ID with `grep -a` in the Image. It skips `set_grub_default`; the C630 default stays pinned in `/etc/default/c630-menu`. `~/bin/kernel-build`, `kernel-boot-check` and `kernel-log-compare` are now repo symlinks (old copy at `~/bin/kernel-build.pre-repo-link`). x86 path unchanged.
+- Checked: 2026-11-16, `make install NOPULL=1`: build `#10-50789359`, install record written, `c630.cfg has c630-7.4.0-rc3`, default still rc2. With `INSTALL_MOD_STRIP=1` now applied, the initrd is 29 MB (was 54.6 MB) with the same 10 firmware files and 795 modules as rc2's; `/lib/modules/7.4.0-rc3` is 97M. Untested: a boot of `#10` and `make loop` passing.
 
 ### F12 — Bluetooth `unexpected event for opcode 0x0000`
 
