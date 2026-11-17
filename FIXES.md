@@ -12,6 +12,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
+| F15 | ❌ | yoga9i | user unit `gnome-software.service` failed at every login | none yet |
 | F14 | ❌ | debian (Yoga 7 14IRL8) | `pam_wtmpdb` cannot write `wtmp.db` at logout | none yet |
 | F13 | ⚠️ | debian (Yoga C630) | `make loop` stops: no install record | see F13 |
 | F12 | ❌ | debian (Yoga C630) | `Bluetooth: hci0: unexpected event for opcode 0x0000` | none yet |
@@ -43,6 +44,15 @@ Take the next number and add it to the top of the index and as a section below. 
 ```
 
 ---
+
+### F15 — `gnome-software.service` fails at every login
+
+- Status: ❌ open
+- Machine / kernel: yoga9i, 7.4.0-rc3 `#19-52838078` (boot 0); also boots -1 to -3, `#17-1b4c2939` among them
+- Symptom: `make feedback` lists `● gnome-software.service loaded failed failed GNOME Software` under `systemctl --user --failed`. Journal: `gnome-software[4191]: Unable to acquire bus name 'org.gnome.Software'`, three restarts, then `Failed with result 'start-limit-hit'`.
+- Cause: two copies start at login. `/etc/xdg/autostart/org.gnome.Software.desktop` launches `gnome-software --gapplication-service` (PID 3941, scope `app-gnome-org.gnome.Software-3941.scope`), which takes the bus name; the systemd user unit (`Type=dbus`, `BusName=org.gnome.Software`) then cannot take it. Userspace only; `make loop` does not see it, since it counts system units.
+- Fix: none
+- Checked: `journalctl --user -b N | grep -c "start-limit-hit"` on 2026-11-17: 1 on each of boots 0, -1, -2, -3; `busctl --user status org.gnome.Software` shows PID 3941 owns the name and gnome-software is running.
 
 ### F14 — `pam_wtmpdb` cannot write `wtmp.db` at logout
 
