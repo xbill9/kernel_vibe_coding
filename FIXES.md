@@ -12,6 +12,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
+| F16 | ❌ | yoga9i | iwlwifi `session protection is over` on a failed roam | none yet |
 | F15 | ⚠️ | yoga9i | user unit `gnome-software.service` failed at every login | `intel/autostart/` override hides the autostart copy |
 | F14 | ❌ | debian (Yoga 7 14IRL8) | `pam_wtmpdb` cannot write `wtmp.db` at logout | none yet |
 | F13 | ⚠️ | debian (Yoga C630) | `make loop` stops: no install record | see F13 |
@@ -44,6 +45,15 @@ Take the next number and add it to the top of the index and as a section below. 
 ```
 
 ---
+
+### F16 — iwlwifi `session protection is over` when a roam fails
+
+- Status: ❌ open, not investigated past the journal
+- Machine / kernel: yoga9i (Intel Wi-Fi at `0000:00:14.3`), 7.4.0-rc3 `#19-52838078` (boot 0, 2 lines); also 7.4.0-rc2 (boot -2, 3 lines on 2026-11-15); absent on boots -1, -3, -4
+- Symptom: `iwlwifi 0000:00:14.3: Not associated and the session protection is over already...`, once per auth retry, each followed by `wlp0s20f3: Connection to AP …:80 lost`.
+- Cause: unknown. Sequence in boot 0, 2026-11-17 12:30:58–12:31:09: the AP sends a WNM preferred-candidate list, the client leaves the `…:88` BSSID to authenticate with `…:80` (SAE), the kernel logs `unexpected authentication state: alg 3 (expected 3) transact 1 (expected 2)` 7 times, auth tries 2 and 3 time out with the iwlwifi line, the supplicant aborts and ignores `…:80`, and the client connects to `…:84` at 12:31:09. Wi-Fi drops for about 9 s. The AP side of the SAE exchange is a candidate (untested).
+- Fix: none
+- Checked: `journalctl -k -b N | grep -c "session protection is over"` on 2026-11-17: boot 0 → 2, -1 → 0, -2 → 3, -3 → 0, -4 → 0.
 
 ### F15 — `gnome-software.service` fails at every login
 
