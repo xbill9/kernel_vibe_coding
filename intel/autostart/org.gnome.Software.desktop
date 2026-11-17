@@ -1,0 +1,10 @@
+# Per-user override of /etc/xdg/autostart/org.gnome.Software.desktop (FIXES.md F15).
+# gnome-session-services.target already starts gnome-software.service; the
+# autostart copy took the bus name first and the unit failed at every login.
+# Install: install -Dm644 intel/autostart/org.gnome.Software.desktop ~/.config/autostart/org.gnome.Software.desktop
+[Desktop Entry]
+Type=Application
+Name=GNOME Software
+Exec=/usr/bin/gnome-software --gapplication-service
+NoDisplay=true
+Hidden=true
