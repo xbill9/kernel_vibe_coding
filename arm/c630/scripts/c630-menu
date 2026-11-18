@@ -11,6 +11,13 @@
 #   c630-dtbtest-<kver> only if /boot/c630boot/dtb-<kver>.test exists: experimental DT
 # plus c630-control: the installer stick's own kernel + installer.
 #
+# Boot-loader test: put a candidate at /boot/efi/EFI/grubtest/grub-<ver>.efi and
+# rerun this script. That adds c630-grubtest-<ver>, which chainloads it from the
+# working GRUB. The candidate reads this same menu and boots c630-grubtest-kernel
+# (the default kernel, verbose) by itself. Every step appends to c630_gt in
+# grubenv, so after the next boot this shows where it stopped:
+#   c630-menu --grubtest-result
+#
 # /etc/default/c630-menu:
 #   C630_DEFAULT=<kver>     default kernel
 #   C630_MODE=safe|full     default entry is the SAFE one or the normal one
@@ -22,6 +29,7 @@
 set -e
 
 U=a81deabf-0654-4f68-b795-284305d26f13
+ESP=3BA7-7161   # the ESP the firmware boots (/boot/efi)
 # modprobe.blacklist=ipa: loading the IPA firmware resets the whole SoC (bisected 2026-10-10).
 PB="clk_ignore_unused pd_ignore_unused regulator_ignore_unused usbcore.autosuspend=-1"
 P="$PB modprobe.blacklist=ipa"
@@ -35,7 +43,14 @@ C630_MODE=full
 [ -r /etc/default/c630-menu ] && . /etc/default/c630-menu
 case "$C630_MODE" in safe) DEF="c630-safe-$C630_DEFAULT" ;; *) DEF="c630-$C630_DEFAULT" ;; esac
 
+if [ "$1" = "--grubtest-result" ]; then
+  grub-editenv /boot/grub/grubenv list | grep '^c630_gt=' || echo "c630_gt not set: no test entry has run"
+  grep -o 'c630\.gt=[^ ]*' /proc/cmdline || echo "this boot did not come from c630-grubtest-kernel"
+  exit 0
+fi
+
 if [ "$1" = "--once" ]; then
+  case "$2" in c630-grubtest-*) grub-editenv /boot/grub/grubenv unset c630_gt ;; esac
   grep -q -- "--id $2 " "$OUT" || { echo "no menu entry with id $2 in $OUT" >&2; exit 1; }
   grub-editenv /boot/grub/grubenv set next_entry="$2"
   if [ -n "$3" ]; then grub-editenv /boot/grub/grubenv set c630_once_args="$3"
@@ -61,10 +76,20 @@ if test -s \$prefix/grubenv; then
     set c630_once_args=
     save_env next_entry c630_once_args
   fi
+  # Boot-loader test: only a candidate GRUB (2.14 or later) sets
+  # feature_gcry_hw_accel; the working 2.12 does not. A candidate that got here
+  # from a c630-grubtest-<ver> entry goes straight on to the test kernel.
+  if test -n "\$c630_gt"; then
+    if test "\$feature_gcry_hw_accel" = "y"; then
+      set c630_gt="\$c630_gt 3-candidate-read-menu"
+      save_env c630_gt
+      set default="c630-grubtest-kernel"
+    fi
+  fi
 fi
 EOF
 
-for v in $(linux-version list | linux-version sort --reverse); do
+for v in $(linux-version list | sort -u | linux-version sort --reverse); do
   [ -f "/usr/lib/linux-image-$v/$DTB" ] && [ -f "/boot/initrd.img-$v" ] || continue
   cp "/usr/lib/linux-image-$v/$DTB" "$DIR/dtb-$v"
   safe_initrd=/boot/initrd.img-$v; safe_note=""
@@ -106,6 +131,60 @@ menuentry "[via \$c630_from] CONTROL - installer-stick kernel + installer (no US
     devicetree /boot/c630boot/c630.dtb
     linux  /boot/c630boot/vmlinuz rescue/enable=true --- $P
     initrd /boot/c630boot/initrd.gz
+}
+EOF
+
+# Boot-loader tests: one chainload entry per /boot/efi/EFI/grubtest/grub-<ver>.efi.
+# Nothing in the firmware's boot path changes. Delete the file to drop the entry.
+# chainloader hands the started image the device in $root, so root has to be the
+# ESP: the candidate looks for EFI/debian/grub.cfg on the device it came from.
+gt=""
+for g in /boot/efi/EFI/grubtest/grub-*.efi; do
+  [ -f "$g" ] || continue
+  gt=1
+  gv=$(basename "$g" .efi); gv=${gv#grub-}
+  cat >> "$tmp" <<EOF
+
+menuentry "[via \$c630_from] TEST - chainload GRUB $gv, then boot $C630_DEFAULT verbose" --id c630-grubtest-$gv {
+    set c630_gt="$gv: 1-chainloader-called"
+    save_env c630_gt
+    set c630_root="\$root"
+    search --no-floppy --fs-uuid --set=root $ESP
+    chainloader /EFI/grubtest/grub-$gv.efi
+    set c630_rc="\$?"
+    if test "\$c630_rc" = "0"; then
+        set c630_gt="\$c630_gt 2-image-loaded"
+        save_env c630_gt
+        echo "GRUB $gv loaded. Starting it. Next: a second menu, header GNU GRUB version $gv."
+        sleep 3
+    else
+        set c630_gt="\$c630_gt 2-chainloader-FAILED-rc\$c630_rc"
+        save_env c630_gt
+        set root="\$c630_root"
+        echo "TEST FAILED in the working GRUB: chainloader could not load GRUB $gv (rc \$c630_rc)."
+        echo "The error is the line above. Back to the menu in 60 s, or press Esc."
+        sleep --interruptible 60
+    fi
+}
+EOF
+done
+
+# The kernel the candidate boots. Each loader command records its exit status.
+[ -n "$gt" ] && cat >> "$tmp" <<EOF
+
+menuentry "[via \$c630_from] TEST - boot $C630_DEFAULT verbose, recording each step" --id c630-grubtest-kernel {
+    devicetree /boot/c630boot/dtb-$C630_DEFAULT
+    set c630_gt="\$c630_gt 4-dtb-rc\$?"
+    save_env c630_gt
+    linux  /boot/vmlinuz-$C630_DEFAULT root=UUID=$U ro $P $DBG c630.gt=1
+    set c630_gt="\$c630_gt 5-linux-rc\$?"
+    save_env c630_gt
+    initrd /boot/initrd.img-$C630_DEFAULT
+    set c630_gt="\$c630_gt 6-initrd-rc\$? 7-boot"
+    save_env c630_gt
+    echo "Trail: \$c630_gt"
+    echo "Starting the kernel in 5 s. Kernel text should follow."
+    sleep 5
 }
 EOF
 
