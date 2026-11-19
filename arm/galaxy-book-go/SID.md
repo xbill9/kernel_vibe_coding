@@ -24,7 +24,7 @@ Changes sid brought:
 
 | C630 failure | Here |
 |---|---|
-| sid's GRUB 2.14 blacked out every kernel | `apt-mark hold` on all `grub*` (6) and `shim*` (4) packages; the script checks each hold before touching sources. GRUB stays 2.12-9+deb13u2 |
+| sid's GRUB 2.14 blacked out every kernel | Held at 2.12 until 2026-11-19; now GRUB 2.14-5 with a 2.12 fallback entry, see [GRUB214.md](GRUB214.md) |
 | sid's `initramfs-tools` copies no `qcom/` firmware | [initramfs/gbgo-firmware](initramfs/gbgo-firmware) → `/etc/initramfs-tools/hooks/` adds `a630_sqe.fw`, `a630_gmu.bin` and the zap shader |
 | New kernel as default | `linux-image-6.12.111+deb13-arm64` held; `GRUB_DEFAULT=gbgo-6.12.111+deb13-arm64` unchanged. A sid kernel gets its own entries (generator) and is tried with `grub-reboot` first |
 | Rebuilt initramfs breaks boot | SAFE entries boot `/boot/gbgo-known-good/initrd.img-<kver>` (copies with `SHA256SUMS`, taken before any change today) |
@@ -40,5 +40,6 @@ Two failed attempts first, both silent: the log redirect into a root-owned folde
 | Symptom | Do |
 |---|---|
 | Menu shows, default hangs/black | hold power 10 s; pick `… SAFE` (6.12.111, known-good initramfs) or 6.12.107 |
+| GRUB 2.14 menu shows, kernel black (since 2026-11-19) | hold power 10 s; pick `GRUB 2.12 fallback` ([GRUB214.md](GRUB214.md)) |
 | No GRUB menu | Debian stick on the hub, F10 → stick → **Galaxy Book Go: Rescue mode (with DTB)** → `sda3` → Execute a shell → `mkdir /run/sshd; /usr/sbin/sshd`; then put GRUB 2.12 back from `esp/` of the backup |
 | Whole system broken | same rescue shell; from the yoga9i: `sudo rsync -aHAXx --numeric-ids --delete -e "ssh … -o HostKeyAlias=gbgo" --rsync-path="sudo rsync" ~/backups/gbgo-2026-10-11-pre-sid/root/ xbill@192.168.0.65:/` (into the chroot's `/`) |

@@ -1,0 +1,65 @@
+#!/bin/sh
+# GRUB generator: the GRUB 2.12 fallback for the Galaxy Book Go, which boots
+# GRUB 2.14 from sid since 2026-11-19 (see GRUB214.md).
+# Installed as /etc/grub.d/00_grub212, so its output comes before 00_header.
+#
+# GRUB 2.12 (the stick's, signed, kept at EFI/grub212/grubaa64.efi) must not load
+# the 2.14 modules in /boot/grub/arm64-efi. When 2.12 reads this grub.cfg (it
+# does not define feature_gcry_hw_accel; 2.14 does), the first block sends it to
+# EFI/grub212/grub.cfg, a menu that uses built-in commands only.
+# Under 2.14 the block is skipped, and the menu gets the entry
+# 'GRUB 2.12 fallback' (id gbgo-grub212), which chainloads that 2.12.
+#
+# Side effect: each update-grub rewrites EFI/grub212/grub.cfg with one entry per
+# kernel that has an initrd, the GRUB_DEFAULT kernel first. Emits nothing unless
+# EFI/grub212/grubaa64.efi is on the ESP.
+set -e
+. /usr/share/grub/grub-mkconfig_lib  # sets grub_probe
+G=/boot/efi/EFI/grub212
+[ -f $G/grubaa64.efi ] || exit 0
+# shellcheck disable=SC2154
+ESP_UUID=$(${grub_probe} --target=fs_uuid /boot/efi)
+DTB=${GBGO_DTB:-/boot/dtb/sc7180-samsung-galaxy-book-go.dtb}
+ARGS="clk_ignore_unused pd_ignore_unused ${GRUB_CMDLINE_LINUX} ${GRUB_CMDLINE_LINUX_DEFAULT}"
+DEF=${GRUB_DEFAULT#gbgo-}
+
+menu() {
+  echo "# GRUB 2.12 fallback menu, written by /etc/grub.d/00_grub212. Built-in commands only."
+  echo "set timeout=10"
+  echo "set timeout_style=menu"
+  echo "search --no-floppy --fs-uuid --set=root ${GRUB_DEVICE_UUID}"
+  for K in "/boot/vmlinuz-$DEF" $(ls -1 /boot/vmlinuz-* | sort -V -r); do
+    V=${K#/boot/vmlinuz-}
+    [ -f "$K" ] && [ -f "/boot/initrd.img-$V" ] || continue
+    case " $seen " in *" $V "*) continue ;; esac
+    seen="$seen $V"
+    cat <<ENTRY
+menuentry 'GRUB 2.12: Debian $V (Galaxy Book Go DTB)' --id g212-$V {
+	linux	/boot/vmlinuz-$V root=UUID=${GRUB_DEVICE_UUID} ro $ARGS
+	initrd	/boot/initrd.img-$V
+	devicetree	$DTB
+}
+ENTRY
+  done
+}
+menu > $G/grub.cfg.new
+mv $G/grub.cfg.new $G/grub.cfg
+echo "Found GRUB 2.12 fallback: $G (menu rewritten)" >&2
+
+cat <<EOF
+if [ x\$feature_gcry_hw_accel != xy ]; then
+  if search --no-floppy --fs-uuid --set=g212esp $ESP_UUID; then
+    configfile (\$g212esp)/EFI/grub212/grub.cfg
+  fi
+  echo "GRUB 2.12: fallback menu not found on the ESP"
+  sleep 10
+fi
+menuentry 'GRUB 2.12 fallback (chainload EFI/grub212/grubaa64.efi)' --id gbgo-grub212 {
+	insmod part_gpt
+	insmod fat
+	insmod chain
+	search --no-floppy --fs-uuid --set=root $ESP_UUID
+	chainloader /EFI/grub212/grubaa64.efi
+	boot
+}
+EOF

@@ -14,12 +14,26 @@ ok()   { echo "OK    $*"; }
 fail() { echo "FAIL  $*"; bad=1; }
 warn() { echo "WARN  $*"; }
 
-# boot loader: packages held at 2.12, ESP files unchanged
+# boot loader: GRUB 2.14 from sid since 2026-11-19 (GRUB214.md). The loaders the
+# firmware runs must be the installed packages' images, so they match the modules
+# in /boot/grub/arm64-efi; and the GRUB 2.12 fallback must be intact.
 for p in grub-common grub-efi-arm64 grub-efi-arm64-bin grub-efi-arm64-signed grub2-common shim-signed; do
   v=$(dpkg-query -W -f '${Version}' "$p" 2>/dev/null)
-  case "$v" in *2.12*|*16.1*) ok "$p $v" ;; *) fail "$p is $v (expected GRUB 2.12 / shim 16.1)" ;; esac
-  apt-mark showhold | grep -qx "$p" || fail "$p not held"
+  [ -n "$v" ] && ok "$p $v" || fail "$p not installed"
 done
+sha() { sha256sum "$1" 2>/dev/null | cut -d' ' -f1; }
+same() {  # same <file on the ESP> <packaged file>
+  [ -n "$(sha "/boot/efi/$1")" ] && [ "$(sha "/boot/efi/$1")" = "$(sha "$2")" ] \
+    && ok "/boot/efi/$1 is the installed $2" || fail "/boot/efi/$1 differs from the installed $2"
+}
+same EFI/BOOT/grubaa64.efi /usr/lib/grub/arm64-efi-signed/grubaa64.efi.signed
+same EFI/BOOT/BOOTAA64.EFI /usr/lib/shim/shimaa64.efi.signed
+G212=/boot/efi/EFI/grub212
+[ "$(sha $G212/grubaa64.efi)" = 3db6ed77b8de1677708189f8bac0fffdf0abb3b7886039231aa8a4acac8e0c22 ] \
+  && ok "GRUB 2.12 fallback $G212/grubaa64.efi intact" || fail "GRUB 2.12 fallback $G212/grubaa64.efi missing or changed"
+grub-script-check $G212/grub.cfg 2>/dev/null && grep -q "^menuentry .*--id g212-$DEF_KVER " $G212/grub.cfg \
+  && ok "GRUB 2.12 fallback menu has the default kernel" || fail "GRUB 2.12 fallback menu bad or missing $DEF_KVER (run update-grub)"
+grep -q -- "--id gbgo-grub212 " /boot/grub/grub.cfg && ok "grub.cfg has the 'GRUB 2.12 fallback' entry" || fail "grub.cfg lacks the gbgo-grub212 entry"
 if [ -n "$1" ]; then
   (cd /boot/efi && sha256sum -c --quiet "$1") && ok "ESP files match $1" || fail "ESP files differ from $1"
 fi
