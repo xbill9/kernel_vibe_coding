@@ -44,7 +44,7 @@ C630_MODE=full
 case "$C630_MODE" in safe) DEF="c630-safe-$C630_DEFAULT" ;; *) DEF="c630-$C630_DEFAULT" ;; esac
 
 if [ "$1" = "--grubtest-result" ]; then
-  grub-editenv /boot/grub/grubenv list | grep '^c630_gt=' || echo "c630_gt not set: no test entry has run"
+  grub-editenv /boot/grub/grubenv list | grep -E '^c630_(gt|try|fb)=' || echo "c630_gt not set: no test entry has run"
   grep -o 'c630\.gt=[^ ]*' /proc/cmdline || echo "this boot did not come from c630-grubtest-kernel"
   exit 0
 fi

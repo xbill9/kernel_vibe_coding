@@ -88,9 +88,14 @@ Newest last. Times are local (EDT).
 
 - 18:35: **GRUB 2.14-5 booted the kernel when chainloaded from 2.12.** Trail: `2.14-5: 1-chainloader-called 2-image-loaded 3-candidate-read-menu 4-dtb-rc0 5-linux-rc0 6-initrd-rc0 7-boot`. Running `7.4.0-rc2-00859-g23c62304dde2` with `c630.gt=1` on the command line, so this boot came through `c630-grubtest-kernel`. This does not yet show 2.14-5 is fixed: the 2.14-4 control has not run with the corrected entry, and a chainloaded GRUB starts after shim and 2.12, not straight from the firmware. Armed once: `c630-grubtest-2.14-4`.
 
+## 2026-11-19
+
+- 09:01: **The 2.14-4 control also booted when chainloaded** (boot of 2026-11-18 18:36). Trail: `2.14-4: 1-chainloader-called 2-image-loaded 3-candidate-read-menu 4-dtb-rc0 5-linux-rc0 6-initrd-rc0 7-boot`, `c630.gt=1` on the command line. So chainloading from 2.12 does not reproduce the 2026-10-10 blackout, and yesterday's 2.14-5 pass says nothing about 2.14-5 as the firmware's loader. It does show GRUB 2.14-4 itself can hand over to this kernel when the stick's shim and GRUB 2.12 ran first. The 2.14-5 changelog (SBAT bumps, an i386 build change) has nothing aimed at the blackout.
+- 09:03: **GRUB 2.14-5 put in the firmware's boot path for one attempt**, at the user's request, with new [scripts/c630-grub-trial](scripts/c630-grub-trial) (`sudo c630-grub-trial 2.14-5`). `EFI/BOOT/grubaa64.efi` is now 2.14-5 (`503d697c5d911946…`). The shim is unchanged (`e5446d2a09dfae3f…`, the stick's). Packages still held at 2.14-4, nothing installed by apt. Both stubs got a guard: a GRUB that sets `feature_gcry_hw_accel` boots the menu itself only while `c630_try=1` in `grubenv` and clears it first; otherwise it chainloads the 2.12 kept at `EFI/debian/grubaa64.efi` (`3db6ed77b8de1677…`). Old stubs kept as `grub.cfg.pre-trial`. `c630_try=1` is set. `grub-script-check` passes on both stubs and on `c630.cfg`. **Untested**: 2.14-5 started by the shim, and 2.14-5 chainloading 2.12 (the fallback). If the fallback also fails, recovery is the installer stick ([RECOVERY.md](RECOVERY.md) section 3). Undo: `sudo c630-grub-trial --restore`.
+
 ## Next
 
-- GRUB test: reboot (armed for the `c630-grubtest-2.14-4` control), then `sudo c630-menu --grubtest-result`. Expected if the test is valid: black at handover, trail ends at `7-boot`; hold power 10 s. Afterwards delete `/boot/efi/EFI/grubtest/` and rerun `c630-menu`.
+- GRUB 2.14-5 trial: after the reboot run `sudo c630-menu --grubtest-result`. A trail starting `2.14-5 direct:` and ending `7-boot`, with `c630.gt=1`, means it booted. `c630_fb=1` means 2.14-5 fell back to 2.12. Then either `sudo c630-grub-trial --restore`, or decide how to keep 2.14-5 (the guard still sends every unarmed boot through 2.12). Afterwards delete `/boot/efi/EFI/grubtest/` and rerun `c630-menu`.
 - One-time boot of rc3 `#10-50789359`, then `make loop` end to end (F13), and plug in the RT5370.
 - Fix the resolv.conf fight for good: let NetworkManager manage the USB Ethernet (see AUDIT).
 - Built-in mic: voice test on DMIC2/DMIC3, then mic bias/gain, then a UCM `Mic (internal)` device.
