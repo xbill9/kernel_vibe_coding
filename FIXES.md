@@ -12,6 +12,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
+| F17 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#10`: five "new" error lines, four of them intermittent on rc2 as well | none yet |
 | F16 | ❌ | yoga9i | iwlwifi `session protection is over` on a failed roam | none yet |
 | F15 | 🟢 | yoga9i | user unit `gnome-software.service` failed at every login | `intel/autostart/` override hides the autostart copy |
 | F14 | ❌ | debian (Yoga 7 14IRL8) | `pam_wtmpdb` cannot write `wtmp.db` at logout | none yet |
@@ -45,6 +46,15 @@ Take the next number and add it to the top of the index and as a section below. 
 ```
 
 ---
+
+### F17 — C630 `make loop` flags five error lines on rc3 `#10`
+
+- Status: ❌ open. No new oops or warning, no failed unit.
+- Machine / kernel: debian (Yoga C630), 7.4.0-rc3 `#10-50789359` against 7.4.0-rc2-00859 `#5` (boot -1, a 9-minute boot)
+- Symptom: `kernel-log-compare` exit 1 with 5 new lines: `dwc3 a800000.usb: Failed to create device link ... hub@2`, `qcom-soundwire ... SWR CMD error ... flushing fifo`, `wcd934x-codec ... Port Closed RX port 0` and `port 1`, and `ti_sn65dsi86 10-002c: Failed to create device link (0x180) with supplier backlight`.
+- Cause: four of the five are not new in rc3. Counted over the last 12 boots, the `dwc3` line is in 3 of 6 rc2 boots and 4 of 5 rc3 boots, `SWR CMD error` in 2 of 6 and 3 of 5, and `Port Closed RX` in every boot but the baseline. The baseline was short and happened to have none. The `ti_sn65dsi86` line is the only one seen once in the 52 boots in the journal; it follows two `Fixed dependency cycle(s)` lines between `/backlight` and the panel. Cause not looked into. The compare takes one boot as the baseline, so lines that come and go count as new.
+- Fix: none
+- Checked: 2026-11-19, this boot: backlight device present (`brightness` 3063 of 4095), panel on, 3 sound cards listed by `aplay -l`. Sound output not listened to. Not checked whether the `ti_sn65dsi86` line repeats.
 
 ### F16 — iwlwifi `session protection is over` when a roam fails
 
