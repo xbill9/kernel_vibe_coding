@@ -79,7 +79,9 @@ if test -s \$prefix/grubenv; then
   # Boot-loader test: only a candidate GRUB (2.14 or later) sets
   # feature_gcry_hw_accel; the working 2.12 does not. A candidate that got here
   # from a c630-grubtest-<ver> entry goes straight on to the test kernel.
-  if test -n "\$c630_gt"; then
+  # Only while the trail ends before the menu step, so an old trail left in
+  # grubenv does not send later boots to the test kernel.
+  if regexp -- '(2-image-loaded|0-stub-read)\$' "\$c630_gt"; then
     if test "\$feature_gcry_hw_accel" = "y"; then
       set c630_gt="\$c630_gt 3-candidate-read-menu"
       save_env c630_gt
@@ -131,6 +133,22 @@ menuentry "[via \$c630_from] CONTROL - installer-stick kernel + installer (no US
     devicetree /boot/c630boot/c630.dtb
     linux  /boot/c630boot/vmlinuz rescue/enable=true --- $P
     initrd /boot/c630boot/initrd.gz
+}
+EOF
+
+# The known-good GRUB 2.12, kept by c630-grub-trial. It reads this same menu;
+# its header says 2.12. For when the installed GRUB cannot boot a kernel.
+[ -f /boot/efi/EFI/c630/grubaa64-2.12.efi ] && cat >> "$tmp" <<EOF
+
+menuentry "[via \$c630_from] GRUB 2.12 - the known-good loader (same menu, header says 2.12)" --id c630-grub212 {
+    set c630_root="\$root"
+    search --no-floppy --fs-uuid --set=root $ESP
+    chainloader /EFI/c630/grubaa64-2.12.efi
+    if test "\$?" != "0"; then
+        set root="\$c630_root"
+        echo "Could not load GRUB 2.12. The error is the line above. Back to the menu in 30 s, or press Esc."
+        sleep --interruptible 30
+    fi
 }
 EOF
 
