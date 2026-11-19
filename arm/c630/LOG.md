@@ -102,10 +102,13 @@ Newest last. Times are local (EDT).
 
 - 09:37: **Guard dropped at the user's request: GRUB 2.14-5 is the loader on every boot** (`sudo c630-grub-trial --keep`, new). Both stubs are back to the five plain lines. `c630_try`, `c630_gt` and `c630_fb` removed from `grubenv`. `c630-menu` gained `c630-grub212`, which chainloads the stick's 2.12 from `EFI/c630/grubaa64-2.12.efi` (`3db6ed77b8de1677…`), and the test-kernel redirect now fires only while the trail ends before the menu step (`regexp`). `grub-script-check` passes on both stubs and `c630.cfg`; the default is unchanged. **Untested**: a boot without the guard, the `c630-grub212` entry from the menu (2.14-5 → 2.12 worked once from the stub), `regexp` at boot, and any kernel other than `7.4.0-rc2-00859` under 2.14-5. If 2.14-5 cannot boot a kernel, pick `c630-grub212` in the menu. [README.md](README.md#boot-chain-as-of-2026-11-19) updated.
 
+- 09:54: `make feedback` on rc3 `#10-50789359`: build ID matches, `tainted` 0, `running`, no failed units. `make loop` exit 1: [FIXES.md](../../FIXES.md) F17. This boot came through GRUB 2.12 (guard still in place at 09:25).
+- 10:11: `make install` built and installed `7.4.0-rc3-00230-g4405c18c95d2` (torvalds `4405c18c95d2`), build `11-6d50eebf`, about 44 minutes with the pull. `vmlinuz`, initrd (29 MB) and DTB are in place and `c630-menu` lists it; `grub-script-check` passes. Default still `7.4.0-rc2-00859`. Not booted.
+
 ## Next
 
 - GRUB 2.14-5: reboot and confirm a plain boot (menu header `2.14-5`, no error lines before the menu). Try `c630-grub212` once from the menu. Boot rc3 and 6.12 under 2.14-5. Then delete `/boot/efi/EFI/grubtest/` and rerun `c630-menu`.
-- One-time boot of rc3 `#10-50789359`, then `make loop` end to end (F13), and plug in the RT5370.
+- One-time boot of `7.4.0-rc3-00230-g4405c18c95d2` (`sudo c630-menu --once c630-7.4.0-rc3-00230-g4405c18c95d2`), then `make loop`. Do the plain GRUB 2.14-5 boot first so the two are not confused. Plug in the RT5370.
 - Fix the resolv.conf fight for good: let NetworkManager manage the USB Ethernet (see AUDIT).
 - Built-in mic: voice test on DMIC2/DMIC3, then mic bias/gain, then a UCM `Mic (internal)` device.
 - Screen dim: confirm it stays off on `balanced` over a longer idle and across a reboot.
