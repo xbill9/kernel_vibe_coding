@@ -14,7 +14,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 |---|---|---|---|---|
 | F20 | ❌ | samsung13 | `make loop` exit 1 on rc3 `#9`: Intel AX211 Bluetooth firmware download fails once, then the driver's retry succeeds | none yet |
 | F19 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#11`: QRTR `failed to announce new service`, intermittent on every mainline 7.4 | none yet |
-| F18 | ⚠️ | debian (Galaxy Book Go) | new build installed with no Book Go boot entry | see F18 |
+| F18 | 🟢 | debian (Galaxy Book Go) | new build installed with no Book Go boot entry | `82af936` |
 | F17 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#10`: five "new" error lines, four of them intermittent on rc2 as well | none yet |
 | F16 | ❌ | yoga9i | iwlwifi `session protection is over` on a failed roam | none yet |
 | F15 | 🟢 | yoga9i | user unit `gnome-software.service` failed at every login | `intel/autostart/` override hides the autostart copy |
@@ -70,12 +70,12 @@ Take the next number and add it to the top of the index and as a section below. 
 
 ### F18 — new build installed with no Galaxy Book Go boot entry
 
-- Status: ⚠️ fix written, untested through a full `make install`
+- Status: 🟢 fixed
 - Machine / kernel: debian (Galaxy Book Go), `7.4.0-rc3-00230-g4405c18c95d2-dirty`, build `6-ed80d002`
 - Symptom: after `make install` (2026-11-19) `grub.cfg` had only the generic `10_linux` entries for the new build, which load no device tree. No `gbgo-<rel>` entry.
 - Cause: the kernel's install hook runs `update-grub` while the image is still `/boot/vmlinux-<rel>`. `kernel-build` copies it to `/boot/vmlinuz-<rel>` afterwards, and `09_galaxy-book-go` lists `/boot/vmlinuz-*`.
-- Fix: `kernel-build` runs `update-grub` again after the copy on arm64 machines without `c630-menu`. The default entry is not changed.
-- Checked: 2026-11-19, a manual `sudo update-grub` printed `Found Galaxy Book Go entry: 7.4.0-rc3-00230-g4405c18c95d2-dirty`, `grub.cfg` has `gbgo-7.4.0-rc3-00230-g4405c18c95d2-dirty` with the DTB, and `gbgo-boot-verify` exited 0. The edited script path itself is untested.
+- Fix: `82af936`, `kernel-build` runs `update-grub` again after the copy on arm64 machines without `c630-menu`. The default entry is not changed.
+- Checked: 2026-11-19, a manual `sudo update-grub` printed `Found Galaxy Book Go entry: 7.4.0-rc3-00230-g4405c18c95d2-dirty`, `grub.cfg` has `gbgo-7.4.0-rc3-00230-g4405c18c95d2-dirty` with the DTB, and `gbgo-boot-verify` exited 0. Build `7-de0ed44e` (`7.4.0-rc3-00395-g8dac6df92a2e-dirty`), installed the same day with the fix, got `gbgo-7.4.0-rc3-00395-g8dac6df92a2e-dirty` in `grub.cfg` with no manual step. Booting that entry is untested.
 
 ### F17 — C630 `make loop` flags five error lines on rc3 `#10`
 
