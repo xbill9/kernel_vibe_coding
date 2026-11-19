@@ -1,8 +1,11 @@
 #!/bin/sh
-# Try a new GRUB as the loader the firmware starts (EFI/BOOT/grubaa64.efi), once.
+# Try a new GRUB as the loader the firmware starts, once. The candidate goes to
+# both EFI/debian/grubaa64.efi and EFI/BOOT/grubaa64.efi: the 2026-11-19 attempt
+# that replaced only EFI/BOOT never ran the candidate, so the firmware starts
+# EFI/debian (not confirmed by any other means; efivars are unreadable here).
 #
-#   c630-grub-trial <ver>      install /boot/efi/EFI/grubtest/grub-<ver>.efi as
-#                              EFI/BOOT/grubaa64.efi and arm one attempt
+#   c630-grub-trial <ver>      install /boot/efi/EFI/grubtest/grub-<ver>.efi in
+#                              both places and arm one attempt
 #   c630-grub-trial --again    arm one more attempt with the GRUB already installed
 #   c630-grub-trial --restore  put GRUB 2.12 back and remove the guard
 #   c630-grub-trial --status   show what is installed and the last result
@@ -10,7 +13,7 @@
 # The shim is not changed. The stubs (EFI/debian/grub.cfg, EFI/BOOT/grub.cfg) get a
 # guard: a candidate GRUB (2.14 or later, it sets feature_gcry_hw_accel) boots the
 # menu itself only while c630_try=1 in grubenv, and clears that first. On every
-# other boot it chainloads the working 2.12 kept at EFI/debian/grubaa64.efi. So a
+# other boot it chainloads the working 2.12 kept at EFI/c630/grubaa64-2.12.efi. So a
 # black screen costs one power cycle (hold power 10 s), as long as the candidate
 # can still start 2.12. If it cannot: RECOVERY.md section 3 (installer stick).
 #
@@ -21,11 +24,12 @@ set -e
 U=a81deabf-0654-4f68-b795-284305d26f13
 ESP=3BA7-7161
 E=/boot/efi/EFI
-OLD=$E/debian/grubaa64.efi      # GRUB 2.12 from the stick; never replaced here
+OLD=$E/c630/grubaa64-2.12.efi   # GRUB 2.12 from the stick: the fallback
+LIVE="$E/debian/grubaa64.efi $E/BOOT/grubaa64.efi"
 OLD_SHA=3db6ed77b8de1677708189f8bac0fffdf0abb3b7886039231aa8a4acac8e0c22
 ENV=/boot/grub/grubenv
 
-case "$1" in -h|--help|"") sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; esac
+case "$1" in -h|--help|"") sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; esac
 [ "$(id -u)" = 0 ] || { echo "run as root" >&2; exit 1; }
 [ "$(findmnt -no UUID /boot/efi)" = "$ESP" ] || { echo "/boot/efi is not $ESP" >&2; exit 1; }
 
@@ -57,7 +61,7 @@ if test "\$feature_gcry_hw_accel" = "y"; then
     set c630_fb=1
     save_env c630_fb
     search.fs_uuid $ESP root
-    chainloader /EFI/debian/grubaa64.efi
+    chainloader /EFI/c630/grubaa64-2.12.efi
     boot
   fi
 fi
@@ -76,7 +80,8 @@ flush() {
 }
 
 status() {
-  for f in $E/BOOT/BOOTAA64.EFI $E/BOOT/grubaa64.efi $OLD; do
+  for f in $E/debian/shimaa64.efi $E/BOOT/BOOTAA64.EFI $LIVE $OLD; do
+    [ -f "$f" ] || { echo "missing           $f"; continue; }
     echo "$(sha "$f" | cut -c1-16)  $(strings -n 5 "$f" | grep -m1 -E '^2\.[0-9]+[-~]') $f"
   done
   grep -c feature_gcry_hw_accel $E/debian/grub.cfg | sed 's/^/guard lines in EFI\/debian\/grub.cfg: /'
@@ -98,8 +103,7 @@ case "$1" in
   arm; flush; status ;;
 --restore)
   [ "$(sha $OLD)" = "$OLD_SHA" ] || { echo "$OLD is not the stick's GRUB 2.12" >&2; exit 1; }
-  cp $OLD $E/BOOT/grubaa64.efi
-  cmp $OLD $E/BOOT/grubaa64.efi
+  for f in $LIVE; do cp $OLD "$f"; cmp $OLD "$f"; done
   stub $E/debian/grub.cfg "sda2 EFI/debian" ""
   stub $E/BOOT/grub.cfg "sda2 EFI/BOOT" ""
   grub-editenv $ENV unset c630_try
@@ -107,11 +111,13 @@ case "$1" in
 *)
   new=$E/grubtest/grub-$1.efi
   [ -f "$new" ] || { echo "no $new" >&2; exit 1; }
-  [ "$(sha $OLD)" = "$OLD_SHA" ] || { echo "$OLD is not the stick's GRUB 2.12; not touching anything" >&2; exit 1; }
+  if [ ! -f $OLD ]; then   # first run: keep the 2.12 that is in place now
+    for f in $LIVE; do [ "$(sha "$f")" = "$OLD_SHA" ] && { mkdir -p $E/c630; cp "$f" $OLD; break; }; done
+  fi
+  [ -f $OLD ] && [ "$(sha $OLD)" = "$OLD_SHA" ] || { echo "no copy of the stick's GRUB 2.12 for $OLD; not touching anything" >&2; exit 1; }
   # Guard first, loader second: at no point does an unguarded candidate boot.
   stub $E/debian/grub.cfg "sda2 EFI/debian" "$1"
   stub $E/BOOT/grub.cfg "sda2 EFI/BOOT" "$1"
-  cp "$new" $E/BOOT/grubaa64.efi
-  cmp "$new" $E/BOOT/grubaa64.efi
+  for f in $LIVE; do cp "$new" "$f"; cmp "$new" "$f"; done
   arm; flush; status ;;
 esac

@@ -7,7 +7,7 @@ Notes and scripts for running Debian on Windows-on-ARM laptops. **This repo live
 ## Don't break the boot
 
 - **Never unhold `grub*`/`shim*`** (`apt-mark hold`). GRUB 2.14 from sid blacks out every kernel. Only GRUB 2.12 from the stick works.
-- The firmware boots `/boot/efi/EFI/BOOT/BOOTAA64.EFI` and ends at `/boot/grub/c630.cfg`, which `c630-menu` generates. `update-grub`'s `grub.cfg` is not what boots, so don't fix boot problems there.
+- The firmware boots the shim and GRUB in `/boot/efi/EFI/debian/` (not `EFI/BOOT/`: replacing only `EFI/BOOT/grubaa64.efi` on 2026-11-19 changed nothing) and ends at `/boot/grub/c630.cfg`, which `c630-menu` generates. Change the loader only through `c630-grub-trial`. `update-grub`'s `grub.cfg` is not what boots, so don't fix boot problems there.
 - Every entry needs these kernel options: `clk_ignore_unused pd_ignore_unused regulator_ignore_unused usbcore.autosuspend=-1`, plus a DTB. Normal entries also need `modprobe.blacklist=ipa`. **Loading `ipa` resets the whole SoC**, including through a manual `modprobe ipa`.
 - **Use UUIDs, never `/dev/sdX`.** The UFS has shown up as `sda`, `sdb` and `sdd` on different boots. UUIDs: root `a81deabf-0654-4f68-b795-284305d26f13`, the ESP the firmware boots `3BA7-7161`. `E725-516C` is a decoy ESP the firmware does not use.
 - Test a risky change with a one-time boot (`sudo c630-menu --once <entry-id> ["extra args"]`), never by changing the default. Verify every file the boot depends on first (hashes, `grub-script-check`). Every reboot costs minutes.
