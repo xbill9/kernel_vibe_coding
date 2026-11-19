@@ -6,7 +6,7 @@ Notes and scripts for running Debian on Windows-on-ARM laptops. **This repo live
 
 ## Don't break the boot
 
-- **Never unhold `grub*`/`shim*`** (`apt-mark hold`). GRUB 2.14 from sid blacks out every kernel. Only GRUB 2.12 from the stick works.
+- **Never let apt run `grub-install`**, and keep `grub*`/`shim*` held (`apt-mark hold`). It overwrites the shim, GRUB and stubs on the ESP, which is what blacked out every kernel on 2026-10-10. `/boot/grub/arm64-efi/core.efi` is renamed to `core.efi.c630-disabled` so the postinst skips it; do not put it back. To upgrade the GRUB packages, see `c630/LOG.md` 2026-11-19. Whether GRUB 2.14 works as the firmware's loader is untested; 2.12 from the stick is the known-good one.
 - The firmware boots the shim and GRUB in `/boot/efi/EFI/debian/` (not `EFI/BOOT/`: replacing only `EFI/BOOT/grubaa64.efi` on 2026-11-19 changed nothing) and ends at `/boot/grub/c630.cfg`, which `c630-menu` generates. Change the loader only through `c630-grub-trial`. `update-grub`'s `grub.cfg` is not what boots, so don't fix boot problems there.
 - Every entry needs these kernel options: `clk_ignore_unused pd_ignore_unused regulator_ignore_unused usbcore.autosuspend=-1`, plus a DTB. Normal entries also need `modprobe.blacklist=ipa`. **Loading `ipa` resets the whole SoC**, including through a manual `modprobe ipa`.
 - **Use UUIDs, never `/dev/sdX`.** The UFS has shown up as `sda`, `sdb` and `sdd` on different boots. UUIDs: root `a81deabf-0654-4f68-b795-284305d26f13`, the ESP the firmware boots `3BA7-7161`. `E725-516C` is a decoy ESP the firmware does not use.
