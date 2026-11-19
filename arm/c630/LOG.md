@@ -104,11 +104,12 @@ Newest last. Times are local (EDT).
 
 - 09:54: `make feedback` on rc3 `#10-50789359`: build ID matches, `tainted` 0, `running`, no failed units. `make loop` exit 1: [FIXES.md](../../FIXES.md) F17. This boot came through GRUB 2.12 (guard still in place at 09:25).
 - 10:11: `make install` built and installed `7.4.0-rc3-00230-g4405c18c95d2` (torvalds `4405c18c95d2`), build `11-6d50eebf`, about 44 minutes with the pull. `vmlinuz`, initrd (29 MB) and DTB are in place and `c630-menu` lists it; `grub-script-check` passes. Default still `7.4.0-rc2-00859`. Not booted.
+- 11:39: booted `7.4.0-rc3-00230-g4405c18c95d2` `#11-6d50eebf`. `make feedback` exit 0: build ID matches, `tainted` 0, `running`, no failed units, 20 kernel error lines, no oops. `make loop` exit 1 on two QRTR lines that come and go on every mainline 7.4: [FIXES.md](../../FIXES.md) F19. F13 closed. Which GRUB loaded this boot was not checked.
 
 ## Next
 
 - GRUB 2.14-5: reboot and confirm a plain boot (menu header `2.14-5`, no error lines before the menu). Try `c630-grub212` once from the menu. Boot rc3 and 6.12 under 2.14-5. Then delete `/boot/efi/EFI/grubtest/` and rerun `c630-menu`.
-- One-time boot of `7.4.0-rc3-00230-g4405c18c95d2` (`sudo c630-menu --once c630-7.4.0-rc3-00230-g4405c18c95d2`), then `make loop`. Do the plain GRUB 2.14-5 boot first so the two are not confused. Plug in the RT5370.
+- Plug in the RT5370.
 - Fix the resolv.conf fight for good: let NetworkManager manage the USB Ethernet (see AUDIT).
 - Built-in mic: voice test on DMIC2/DMIC3, then mic bias/gain, then a UCM `Mic (internal)` device.
 - Screen dim: confirm it stays off on `balanced` over a longer idle and across a reboot.

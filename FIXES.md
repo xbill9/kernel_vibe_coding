@@ -12,12 +12,13 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
+| F19 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#11`: QRTR `failed to announce new service`, intermittent on every mainline 7.4 | none yet |
 | F18 | ⚠️ | debian (Galaxy Book Go) | new build installed with no Book Go boot entry | see F18 |
 | F17 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#10`: five "new" error lines, four of them intermittent on rc2 as well | none yet |
 | F16 | ❌ | yoga9i | iwlwifi `session protection is over` on a failed roam | none yet |
 | F15 | 🟢 | yoga9i | user unit `gnome-software.service` failed at every login | `intel/autostart/` override hides the autostart copy |
 | F14 | ❌ | debian (Yoga 7 14IRL8) | `pam_wtmpdb` cannot write `wtmp.db` at logout | none yet |
-| F13 | ⚠️ | debian (Yoga C630) | `make loop` stops: no install record | see F13 |
+| F13 | 🟢 | debian (Yoga C630) | `make loop` stops: no install record | see F13 |
 | F12 | ❌ | debian (Yoga C630) | `Bluetooth: hci0: unexpected event for opcode 0x0000` | none yet |
 | F11 | 🟢 | debian (Yoga C630) | built-in Wi-Fi appears ~95 s after boot | `34d4e11` (mask) |
 | F10 | ❌ | debian (Yoga 7 14IRL8) | `Driver 'pcspkr' is already registered` at boot | none yet |
@@ -47,6 +48,15 @@ Take the next number and add it to the top of the index and as a section below. 
 ```
 
 ---
+
+### F19 — C630 `make loop` flags two QRTR lines on rc3 `#11`
+
+- Status: ❌ open. No new oops or warning, no failed unit; error lines fell from 28 to 20 against the baseline.
+- Machine / kernel: debian (Yoga C630), 7.4.0-rc3-00230-g4405c18c95d2 `#11-6d50eebf` against 7.4.0-rc3 `#10-50789359` (boot -1)
+- Symptom: `kernel-log-compare` exit 1 with 2 new lines, both at 11:38:31, right after `QCA setup on UART is completed` and before `remoteproc3: remote processor 4080000.remoteproc is now up`: `failed to announce new service` and `failed while handling packet from 0:-2`. The wording matches the QRTR name server (`net/qrtr/ns.c`); not confirmed against the source.
+- Cause: not new in this build. Counted over the 52 boots in the journal, both lines appear together in 10 of 15 mainline 7.4 boots (rc2-00696: 1 of 3, rc2-00859: 5 of 6, plain 7.4.0-rc3 builds: 2 of 5, rc3-00230: 1 of 1) and in none of the 37 Debian-kernel boots (6.12.107, 6.12.111, 7.2.9). The baseline `#10` boot happened to lack them, the same one-boot-baseline effect as F17. Cause of the failure itself not looked into; it may be a race with the modem remoteproc coming up (untested).
+- Fix: none
+- Checked: 2026-11-19, per-boot `journalctl -k -b N | grep -c "failed to announce new service"` over every boot. Wi-Fi came up in this boot (`ath10k_snoc` QMI at 11:38:32). Effect on any QRTR service not checked.
 
 ### F18 — new build installed with no Galaxy Book Go boot entry
 
@@ -95,12 +105,12 @@ Take the next number and add it to the top of the index and as a section below. 
 
 ### F13 — `make loop` stops on the C630: no install record
 
-- Status: ⚠️ fix committed, not yet checked across a reboot
+- Status: 🟢 fixed, checked on the C630 across a reboot into `#11`
 - Machine / kernel: debian (Yoga C630), 7.4.0-rc3 `#9`
 - Symptom: `no install record at ~/.local/state/kernel-build/installed; install with kernel-build first`, then `make: *** [Makefile:46: loop] Error 2`
 - Cause: on the C630, `~/bin/kernel-build` was a stale local copy (1732 bytes, 2026-11-14) from before build IDs, not the repo symlink. It wrote no install record. The repo script would also have failed here: its `/boot` check uses `file(1)`, which reads the version only from an x86 bzImage, and on arm64 `make install` leaves only `/boot/vmlinux-<rel>`, with no `vmlinuz` or DTB, so `c630-menu` skips the kernel.
 - Fix: `intel/scripts/kernel-build` on arm64 copies `arch/arm64/boot/Image` to `/boot/vmlinuz-<rel>`, runs `dtbs_install` into `/usr/lib/linux-image-<rel>/`, reruns `c630-menu` and `grub-script-check` and confirms the `c630-<rel>` entry, then checks the build ID with `grep -a` in the Image. It skips `set_grub_default`; the C630 default stays pinned in `/etc/default/c630-menu`. `~/bin/kernel-build`, `kernel-boot-check` and `kernel-log-compare` are now repo symlinks (old copy at `~/bin/kernel-build.pre-repo-link`). x86 path unchanged.
-- Checked: 2026-11-16, `make install NOPULL=1`: build `#10-50789359`, install record written, `c630.cfg has c630-7.4.0-rc3`, default still rc2. With `INSTALL_MOD_STRIP=1` now applied, the initrd is 29 MB (was 54.6 MB) with the same 10 firmware files and 795 modules as rc2's; `/lib/modules/7.4.0-rc3` is 97M. Untested: a boot of `#10` and `make loop` passing.
+- Checked: 2026-11-19, boot of `#11-6d50eebf` (installed by the repo `kernel-build`): `kernel-boot-check` exit 0 with the build ID matched, and `make loop` ran the build ID check and `kernel-log-compare` through (exit 1 is F19, not this). Earlier, 2026-11-16, `make install NOPULL=1`: build `#10-50789359`, install record written, `c630.cfg has c630-7.4.0-rc3`, default still rc2. With `INSTALL_MOD_STRIP=1` now applied, the initrd is 29 MB (was 54.6 MB) with the same 10 firmware files and 795 modules as rc2's; `/lib/modules/7.4.0-rc3` is 97M.
 
 ### F12 — Bluetooth `unexpected event for opcode 0x0000`
 
