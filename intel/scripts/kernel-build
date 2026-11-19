@@ -163,7 +163,11 @@ install_arm64_extras() {
   sudo cp arch/arm64/boot/Image "/boot/vmlinuz-$release"
   sudo make INSTALL_DTBS_PATH="/usr/lib/linux-image-$release" dtbs_install
   menu=$(PATH=$PATH:/usr/local/sbin:/usr/sbin command -v c630-menu) || {
-    echo "no c630-menu; boot entries left to the distro hooks"
+    # The distro hook ran update-grub before vmlinuz-<rel> existed, so menu
+    # generators that list /boot/vmlinuz-* (09_galaxy-book-go) missed this
+    # build. Run it again; the default entry is not changed.
+    echo "no c630-menu; running update-grub again now that vmlinuz-$release exists"
+    sudo update-grub
     return 0
   }
   sudo "$menu"
