@@ -22,7 +22,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 | F10 | ❌ | debian (Yoga 7 14IRL8) | `Driver 'pcspkr' is already registered` at boot | none yet |
 | F9 | 🟢 | debian (Yoga 7 14IRL8) | systemd `bpf-restrict-fs` cannot load: no kernel BTF | config: `DEBUG_INFO_BTF=y` |
 | F8 | 🟢 | samsung13 | `make loop` reports hashed `%p` pointers as new error lines | `94316e9` |
-| F7 | ❌ | yoga9i | Wacom digitizer: `device returned incorrect report (0 vs 11 expected)` | none yet |
+| F7 | ❌ | yoga9i, debian13u (Yoga 7 14IRL8) | Wacom digitizer: `device returned incorrect report (0 vs 11 expected)` | none yet |
 | F6 | ⚠️ | not yoga9i | runtime-PM udev rule logs ~40 `Could not chase` lines per boot | `7ed46de` |
 | F5 | ⚠️ | gpu, yogagpu | NVIDIA DKMS build fails under `make install` | `1c9191f` |
 | F4 | 🟢 | yoga9i | boot checks read an older build of the same release | `d045c39` |
@@ -143,6 +143,7 @@ Take the next number and add it to the top of the index and as a section below. 
 - Machine / kernel: yoga9i; seen on 7.4.0-rc2-mainline+ `#15` (boot -1) and 7.4.0-rc3-mainline `#17-1b4c2939` (boot 0)
 - Symptom: `i2c_hid_acpi i2c-WACF2200:00: device returned incorrect report (0 vs 11 expected)`, 3 times per boot
 - Cause: unknown. Absent on 7.4.0-rc2-mainline `#6` (boot -2) and on boot -3, so it is not tied to rc3.
+- Also on debian13u (Lenovo Yoga 7 14IRL8; was hostname `debian` in F9–F10, F14): `i2c_hid_acpi i2c-WACF22005362:00: device returned incorrect report (0 vs 11 expected)`, 3 times on 7.4.0-rc3+ `#10-12f8f214` (`v7.4-rc3-230-g4405c18c95d2`, boot 0, 2026-11-19). Count is 0 on the six boots before it: `#9-80b0b4f4`, `#7-1a43c85b`, `#6-c3d1b926`, Debian 7.3.4 `#1`, 7.4.0-rc2+ `#3` and `#2`. One boot is not enough to tie it to the commits between `#9` and `#10`; whether it repeats on the next boot of `#10` is untested.
 - Fix: none
 - Checked: `kernel-log-compare -2` on 2026-11-16 lists it as `+3` new against `#6`; the journal count is 3 on boots 0 and -1, 0 on boots -2 and -3.
 
