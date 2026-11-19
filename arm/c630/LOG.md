@@ -105,6 +105,7 @@ Newest last. Times are local (EDT).
 - 09:54: `make feedback` on rc3 `#10-50789359`: build ID matches, `tainted` 0, `running`, no failed units. `make loop` exit 1: [FIXES.md](../../FIXES.md) F17. This boot came through GRUB 2.12 (guard still in place at 09:25).
 - 10:11: `make install` built and installed `7.4.0-rc3-00230-g4405c18c95d2` (torvalds `4405c18c95d2`), build `11-6d50eebf`, about 44 minutes with the pull. `vmlinuz`, initrd (29 MB) and DTB are in place and `c630-menu` lists it; `grub-script-check` passes. Default still `7.4.0-rc2-00859`. Not booted.
 - 11:39: booted `7.4.0-rc3-00230-g4405c18c95d2` `#11-6d50eebf`. `make feedback` exit 0: build ID matches, `tainted` 0, `running`, no failed units, 20 kernel error lines, no oops. `make loop` exit 1 on two QRTR lines that come and go on every mainline 7.4: [FIXES.md](../../FIXES.md) F19. F13 closed. Which GRUB loaded this boot was not checked.
+- 13:40: `make install` built and installed `7.4.0-rc3-00433-g8dac6df92a2e` (torvalds `8dac6df92a2e`), build `12-a60c61b4`. No QRTR changes in the pull (F19 expected to remain); three `hci_qca` fixes, so watch F12. `c630-menu` lists it, `grub-script-check` passes; default still `7.4.0-rc2-00859`. Rebooting into it once with `c630-menu --once`.
 
 ## Next
 
