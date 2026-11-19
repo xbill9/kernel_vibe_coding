@@ -21,7 +21,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 | F13 | 🟢 | debian (Yoga C630) | `make loop` stops: no install record | see F13 |
 | F12 | ❌ | debian (Yoga C630) | `Bluetooth: hci0: unexpected event for opcode 0x0000` | none yet |
 | F11 | 🟢 | debian (Yoga C630) | built-in Wi-Fi appears ~95 s after boot | `34d4e11` (mask) |
-| F10 | ❌ | debian (Yoga 7 14IRL8) | `Driver 'pcspkr' is already registered` at boot | none yet |
+| F10 | ❌ | debian (Yoga 7 14IRL8) | `Driver 'pcspkr' is already registered` at boot | none; avoided by `localmodconfig` on `#12` |
 | F9 | 🟢 | debian (Yoga 7 14IRL8) | systemd `bpf-restrict-fs` cannot load: no kernel BTF | config: `DEBUG_INFO_BTF=y` |
 | F8 | 🟢 | samsung13 | `make loop` reports hashed `%p` pointers as new error lines | `94316e9` |
 | F7 | ❌ | yoga9i, debian13u (Yoga 7 14IRL8) | Wacom digitizer: `device returned incorrect report (0 vs 11 expected)` | none yet |
@@ -138,6 +138,7 @@ Take the next number and add it to the top of the index and as a section below. 
 - Cause: `pcspkr` (input) and `snd_pcsp` (ALSA) both register a platform driver named `pcspkr` (`drivers/input/misc/pcspkr.c:126`, `sound/drivers/pcsp/pcsp.c:196`). In this build's `modules.alias` both modules answer `platform:pcspkr`; Debian 7.3.4's lists only `pcspkr`, so udev loads both here and the second registration fails. `pcspkr` stays loaded, `snd_pcsp` does not. Why the Debian alias table lacks `snd_pcsp` is untested.
 - Fix: none. Candidate: `blacklist snd_pcsp` in `/etc/modprobe.d/` (untested).
 - Checked: 2026-11-16, `grep pcspkr /lib/modules/*/modules.alias`; `lsmod` shows `pcspkr` only. The PC Speaker line appears on boot -1 with no error.
+- Update 2026-11-19: gone on debian13u `#12-32f07622` only because `localmodconfig` no longer builds `snd_pcsp` ([YOGA7-TUNING.md](intel/docs/YOGA7-TUNING.md)); the clash is still there in any config that builds both. `make loop` against `#10` lists it as `-1`.
 
 ### F9 — systemd `bpf-restrict-fs` fails: no kernel BTF
 
@@ -163,7 +164,7 @@ Take the next number and add it to the top of the index and as a section below. 
 - Machine / kernel: yoga9i; seen on 7.4.0-rc2-mainline+ `#15` (boot -1) and 7.4.0-rc3-mainline `#17-1b4c2939` (boot 0)
 - Symptom: `i2c_hid_acpi i2c-WACF2200:00: device returned incorrect report (0 vs 11 expected)`, 3 times per boot
 - Cause: unknown. Absent on 7.4.0-rc2-mainline `#6` (boot -2) and on boot -3, so it is not tied to rc3.
-- Also on debian13u (Lenovo Yoga 7 14IRL8; was hostname `debian` in F9–F10, F14): `i2c_hid_acpi i2c-WACF22005362:00: device returned incorrect report (0 vs 11 expected)`, 3 times on 7.4.0-rc3+ `#10-12f8f214` (`v7.4-rc3-230-g4405c18c95d2`, boot 0, 2026-11-19). Count is 0 on the six boots before it: `#9-80b0b4f4`, `#7-1a43c85b`, `#6-c3d1b926`, Debian 7.3.4 `#1`, 7.4.0-rc2+ `#3` and `#2`. One boot is not enough to tie it to the commits between `#9` and `#10`; whether it repeats on the next boot of `#10` is untested.
+- Also on debian13u (Lenovo Yoga 7 14IRL8; was hostname `debian` in F9–F10, F14): `i2c_hid_acpi i2c-WACF22005362:00: device returned incorrect report (0 vs 11 expected)`, 3 times on 7.4.0-rc3+ `#10-12f8f214` (`v7.4-rc3-230-g4405c18c95d2`, boot 0, 2026-11-19). Count is 0 on the six boots before it: `#9-80b0b4f4`, `#7-1a43c85b`, `#6-c3d1b926`, Debian 7.3.4 `#1`, 7.4.0-rc2+ `#3` and `#2`. One boot is not enough to tie it to the commits between `#9` and `#10`; whether it repeats on the next boot of `#10` is untested. Absent on the next boot, `#12-32f07622` (same source, tuned config), 2026-11-19.
 - Fix: none
 - Checked: `kernel-log-compare -2` on 2026-11-16 lists it as `+3` new against `#6`; the journal count is 3 on boots 0 and -1, 0 on boots -2 and -3.
 
