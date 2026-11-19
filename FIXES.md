@@ -12,6 +12,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
+| F20 | ❌ | samsung13 | `make loop` exit 1 on rc3 `#9`: Intel AX211 Bluetooth firmware download fails once, then the driver's retry succeeds | none yet |
 | F19 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#11`: QRTR `failed to announce new service`, intermittent on every mainline 7.4 | none yet |
 | F18 | ⚠️ | debian (Galaxy Book Go) | new build installed with no Book Go boot entry | see F18 |
 | F17 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#10`: five "new" error lines, four of them intermittent on rc2 as well | none yet |
@@ -48,6 +49,15 @@ Take the next number and add it to the top of the index and as a section below. 
 ```
 
 ---
+
+### F20 — samsung13 Bluetooth firmware download fails once on rc3 `#9`
+
+- Status: ❌ open. Looks harmless: the driver's own retry loaded the firmware in the same boot. Seen once.
+- Machine / kernel: samsung13, 7.4.0-rc3-xbill+ `#9-349f03e8` (`v7.4-rc3-178-g20eef29b7c84`) against 7.4.0-rc3-xbill `#7` (boot -1)
+- Symptom: `kernel-log-compare` exit 1 with 2 new lines from the Intel AX211 Bluetooth controller (USB `8087:0033`, firmware `intel/ibt-0040-0041.sfi`, version 24-29.26). At 4.84 s the download starts; at 6.40 s `Failed to send firmware data (-38)` and at 6.41 s `Failed to send Intel get rom debug info command (-56)`, then `Intel reset sent to retry FW download`. The second attempt starts at 6.99 s and ends `Firmware loaded in 1463339 usecs` and `Device booted in 15607 usecs` at 8.51 s; DDC parameters and Fseq apply normally.
+- Cause: unknown. The lines come from `drivers/bluetooth/btintel.c`: the `btintel_secure_send()` failure in the firmware download loop (line 1242), then `btintel_get_rom_debug_info()` (line 1000) on the error path, then the reset-and-retry at line 1492. `-38` is `ENOSYS`; where `btintel_secure_send()` gets it from is untested. No commits touch `drivers/bluetooth` or `net/bluetooth` between v7.4-rc3 and the build's commit, so a change in this build is not the likely cause (untested).
+- Fix: none
+- Checked: 2026-11-19. In the 22 boots in the journal (from 2026-09-04), `Failed to send firmware data` appears only in this boot; the previous two (rc3 `#7`, rc2) loaded the firmware first time. `bluetoothctl show` lists the controller (`Powered: no`; whether that is the saved user setting is untested). Next: watch whether it recurs on the next boots.
 
 ### F19 — C630 `make loop` flags two QRTR lines on rc3 `#11`
 
