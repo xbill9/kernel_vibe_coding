@@ -12,6 +12,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
+| F21 | ❌ | debian13u (Yoga 7 14IRL8) | `geoclue.service` start timed out once at boot on rc3 `#14`; a manual start succeeds | none yet |
 | F20 | ❌ | samsung13 | `make loop` exit 1 on rc3 `#9`: Intel AX211 Bluetooth firmware download fails once, then the driver's retry succeeds | none yet |
 | F19 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#11`: QRTR `failed to announce new service`, intermittent on every mainline 7.4 | none yet |
 | F18 | 🟢 | debian (Galaxy Book Go) | new build installed with no Book Go boot entry | `82af936` |
@@ -49,6 +50,15 @@ Take the next number and add it to the top of the index and as a section below. 
 ```
 
 ---
+
+### F21 — debian13u `geoclue.service` start timeout on rc3 `#14`
+
+- Status: ❌ open. Seen once. The symptom is in userspace; the cause is unknown.
+- Machine / kernel: debian13u (Lenovo Yoga 7 14IRL8), 7.4.0-rc3+ `#14-24598a3e` (`v7.4-rc3-406-g65e4fd942f72`) against `#13-36eeb02e` (boot -1)
+- Symptom: `make feedback` shows `systemctl is-system-running` `degraded` and `● geoclue.service loaded failed failed Location Lookup Service`; `make loop` exits 0 but lists `geoclue.service` under units that failed in this boot only. At 8.84 s the GDM gnome-shell D-Bus-activates `org.freedesktop.GeoClue2`; dbus-daemon gives up at 33.8 s (`service_start_timeout=25000ms`) and systemd kills the unit at 98.9 s (`start operation timed out`, `Result: timeout`). `/usr/libexec/geoclue` (PID 2082) used 43 ms CPU in those 90 s and never took the bus name, so it was blocked, not busy. What it was waiting on is untested.
+- Cause: unknown. Whether the kernel is involved is untested; this boot has no kernel error lines (`journalctl -k -b -p err` is empty).
+- Fix: none
+- Checked: 2026-11-20. Across the 26 boots in the journal (from 2026-09-05), `geoclue.service` `Failed with result 'timeout'` appears only in boot 0. On `#13` (boot -1) the unit started and idled out normally (`Service not used for 60 seconds`). `sudo systemctl start geoclue.service` at 09:23:43 returned at once with `active`. Next: watch whether it recurs on the next boots of `#14`.
 
 ### F20 — samsung13 Bluetooth firmware download fails once on rc3 `#9`
 
@@ -103,6 +113,7 @@ Take the next number and add it to the top of the index and as a section below. 
 - Cause: two copies start at login. `/etc/xdg/autostart/org.gnome.Software.desktop` launches `gnome-software --gapplication-service` (PID 3941, scope `app-gnome-org.gnome.Software-3941.scope`), which takes the bus name; the systemd user unit (`Type=dbus`, `BusName=org.gnome.Software`) then cannot take it. Userspace only; `make loop` does not see it, since it counts system units.
 - Fix: `intel/autostart/org.gnome.Software.desktop` (`Hidden=true`) overrides the autostart entry for the user, so only the systemd unit starts it, which is the path D-Bus activation already uses (`SystemdService=gnome-software.service`). Install: `install -Dm644 intel/autostart/org.gnome.Software.desktop ~/.config/autostart/org.gnome.Software.desktop`
 - Checked: `journalctl --user -b N | grep -c "start-limit-hit"` on 2026-11-17: 1 on each of boots 0, -1, -2, -3; `busctl --user status org.gnome.Software` shows PID 3941 owns the name and gnome-software is running. After the fix, 2026-11-17: `desktop-file-validate` exit 0; with the autostart copy stopped, `systemctl --user start gnome-software.service` gives `active`, and `busctl --user status org.gnome.Software` shows `UserUnit=gnome-software.service`. After a reboot into 7.4.0-rc3 `#20-4e83ed55` and a fresh login, 2026-11-17 15:31: `systemctl --user --failed` is empty; `journalctl --user -b` has one `Started gnome-software.service`, no `Unable to acquire bus name`, no `start-limit-hit` and no `app-gnome-org.gnome.Software-*.scope`; `busctl --user status org.gnome.Software` shows `UserUnit=gnome-software.service` (PID 4179).
+- Also on debian13u (Yoga 7 14IRL8), 7.4.0-rc3+ `#14-24598a3e`, 2026-11-20: the same `start-limit-hit`, and `journalctl --user -b` has 3 `Unable to acquire bus name 'org.gnome.Software'` lines. The override is not installed there (`~/.config/autostart/org.gnome.Software.desktop` is missing). Not yet applied; whether it fixes debian13u is untested.
 
 ### F14 — `pam_wtmpdb` cannot write `wtmp.db` at logout
 
