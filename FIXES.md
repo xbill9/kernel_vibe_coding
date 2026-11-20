@@ -12,11 +12,8 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
-<<<<<<< Updated upstream
+| F23 | ❌ | debian (Galaxy Book Go) | `qcom-spmi-adc-tm5`: `Failed to create device link` for two thermistors on rc3 `#9` | none yet |
 | F22 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#15`: `geoclue.service` start times out once | none yet |
-=======
-| F22 | ❌ | debian (Galaxy Book Go) | `qcom-spmi-adc-tm5`: `Failed to create device link` for two thermistors on rc3 `#9` | none yet |
->>>>>>> Stashed changes
 | F21 | ❌ | debian13u (Yoga 7 14IRL8) | `geoclue.service` start timed out once at boot on rc3 `#14`; a manual start succeeds | none yet |
 | F20 | ❌ | samsung13 | `make loop` exit 1 on rc3 `#9`: Intel AX211 Bluetooth firmware download fails once, then the driver's retry succeeds | none yet |
 | F19 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#11`: QRTR `failed to announce new service`, intermittent on every mainline 7.4 | none yet |
@@ -56,7 +53,15 @@ Take the next number and add it to the top of the index and as a section below. 
 
 ---
 
-<<<<<<< Updated upstream
+### F23 — `qcom-spmi-adc-tm5` fails to create device links on the Galaxy Book Go
+
+- Status: ❌ open
+- Machine / kernel: debian (Galaxy Book Go), `7.4.0-rc3-efivars-00406-g65e4fd942f72-dirty`, build `9-818f3fd6`
+- Symptom: `make loop` exit 1 on 2026-11-20. Two lines at boot: `qcom-spmi-adc-tm5 c440000.spmi:pmic@0:adc-tm@3500: Failed to create device link (0x180) with supplier c440000.spmi:pmic@0:adc@3100` for `thermistor@1` and `charger-thermistor@0`. Present in this boot only out of the last six (`journalctl -k -b 0..-5`); the baseline was build `7-de0ed44e` (`v7.4-rc3-395-g8dac6df92a2e`).
+- Cause: untested. Candidates are the 11 mainline commits between `8dac6df92a2e` and `65e4fd942f72` and the local changes in the tree (`qcom_scm.c`, `icc-rpmh.c`). One boot of this build, so it may also be intermittent.
+- Fix: none yet
+- Checked: whether the thermal zones still report is untested.
+
 ### F22 — C630 `geoclue.service` start times out on rc3 `#15`
 
 - Status: ❌ open. Userspace unit, not a kernel line; seen once.
@@ -65,16 +70,6 @@ Take the next number and add it to the top of the index and as a section below. 
 - Cause: unknown. Geoclue started 2 s after ModemManager logged `couldn't create modem for device 'qcom-soc': Failed to find a net port in the QMI modem` (expected: `ipa` is blacklisted, so the modem has no net port). Whether geoclue was waiting on ModemManager, Wi-Fi or something else is untested.
 - Fix: none
 - Checked: 2026-11-20. Over the last 12 boots in the journal, `Failed to start geoclue.service` appears only in boot 0. Boot -1 ran the same build `#15` and geoclue started normally, so a kernel change is not the likely cause (untested). Same symptom on the same day on debian13u (F21, x86, rc3 `#14`): two machines, two architectures, two builds, which also points at userspace (untested). 2026-11-20 10:16: did not recur on the next boot of `#15` (no failed units). Next: watch whether it recurs; if it does, `journalctl -u geoclue -o verbose` and `busctl` on what it waits for.
-=======
-### F22 — `qcom-spmi-adc-tm5` fails to create device links on the Galaxy Book Go
-
-- Status: ❌ open
-- Machine / kernel: debian (Galaxy Book Go), `7.4.0-rc3-efivars-00406-g65e4fd942f72-dirty`, build `9-818f3fd6`
-- Symptom: `make loop` exit 1 on 2026-11-20. Two lines at boot: `qcom-spmi-adc-tm5 c440000.spmi:pmic@0:adc-tm@3500: Failed to create device link (0x180) with supplier c440000.spmi:pmic@0:adc@3100` for `thermistor@1` and `charger-thermistor@0`. Present in this boot only out of the last six (`journalctl -k -b 0..-5`); the baseline was build `7-de0ed44e` (`v7.4-rc3-395-g8dac6df92a2e`).
-- Cause: untested. Candidates are the 11 mainline commits between `8dac6df92a2e` and `65e4fd942f72` and the local changes in the tree (`qcom_scm.c`, `icc-rpmh.c`). One boot of this build, so it may also be intermittent.
-- Fix: none yet
-- Checked: whether the thermal zones still report is untested.
->>>>>>> Stashed changes
 
 ### F21 — debian13u `geoclue.service` start timeout on rc3 `#14`
 
