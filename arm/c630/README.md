@@ -65,10 +65,10 @@ Installed as of 2026-11-20 (menu cleaned up that day; boot counts from the journ
 
 | Kernel | Status |
 |---|---|
-| 7.4.0-rc3-00444-g65e4fd942f72 `#15` | **Default since 2026-11-20. Boots** (3 boots). Full hardware check clean: see [LOG.md](LOG.md#2026-11-20) |
+| 7.4.0-rc3-00444-g65e4fd942f72 `#15` | **Default since 2026-11-20. Boots** (4 boots, including from the cleaned-up menu). Full hardware check clean: see [LOG.md](LOG.md#2026-11-20) |
 | 7.4.0-rc3-00433-g8dac6df92a2e `#12` | **Backup. Boots** (1 boot). Published as a GitHub release |
-| 7.4.0-rc2-00859-g23c62304dde2 | **Backup. Boots** (6 boots). Default 2026-11-16 to 11-20 |
-| 6.12.111+deb13 | **Backup, Debian stable kernel. Booted** twice (October, under GRUB 2.12). Untested under GRUB 2.14-5. No battery/USB-C drivers |
+| 7.4.0-rc2-00859-g23c62304dde2 | **Backup. Boots** (6 boots, including under GRUB 2.14-5). Default 2026-11-16 to 11-20 |
+| 6.12.111+deb13 | **Does not boot** under GRUB 2.14-5 (one-time boot 2026-11-20, no journal). Booted twice in October under GRUB 2.12. Not a working fallback |
 | 7.3.5+deb14 | Debian sid kernel (`linux-image-arm64`). **Never booted** on this machine |
 
 Removed 2026-11-20: 7.4.0-rc3-00230, 7.4.0-rc3, 7.4.0-rc2-00706 (never booted), 7.4.0-rc2-00696 and the Debian 7.3.4 package (never booted). 7.2.9+deb14 and 6.12.107+deb13 were removed earlier.
