@@ -4,10 +4,12 @@
 #
 # Per installed kernel (newest first):
 #   c630-<kver>         normal boot, all hardware/firmware
+# For the default kernel only (C630_ALL_EXTRAS=1 lists them for every kernel):
 #   c630-safe-<kver>    SAFE: no Qualcomm DSP/modem/video/GPU firmware is loaded,
 #                       and the pre-firmware initramfs is used if one was saved
 #                       (/boot/c630boot/initrd-<kver>.pre-firmware)
 #   c630-debug-<kver>   verbose, all hardware
+# For every kernel:
 #   c630-dtbtest-<kver> only if /boot/c630boot/dtb-<kver>.test exists: experimental DT
 # plus c630-control: the installer stick's own kernel + installer.
 #
@@ -40,6 +42,7 @@ OUT=/boot/grub/c630.cfg
 DIR=/boot/c630boot
 C630_DEFAULT=6.12.107+deb13-arm64
 C630_MODE=full
+C630_ALL_EXTRAS=
 [ -r /etc/default/c630-menu ] && . /etc/default/c630-menu
 case "$C630_MODE" in safe) DEF="c630-safe-$C630_DEFAULT" ;; *) DEF="c630-$C630_DEFAULT" ;; esac
 
@@ -106,6 +109,9 @@ menuentry "[via \$c630_from] Debian $v$t1" --id c630-$v {
     linux  /boot/vmlinuz-$v root=UUID=$U ro $P quiet \$once
     initrd /boot/initrd.img-$v
 }
+EOF
+  # SAFE and debug entries: the default kernel only, unless C630_ALL_EXTRAS=1.
+  [ "$C630_DEFAULT" = "$v" ] || [ "$C630_ALL_EXTRAS" = 1 ] && cat >> "$tmp" <<EOF
 menuentry "[via \$c630_from] Debian $v SAFE - no Qualcomm firmware$safe_note$t2" --id c630-safe-$v {
     devicetree /boot/c630boot/dtb-$v
     linux  /boot/vmlinuz-$v root=UUID=$U ro $PB $SAFE quiet \$once

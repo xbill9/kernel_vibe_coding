@@ -39,19 +39,19 @@ GRUB 2.12 from the stick is kept at `EFI/c630/grubaa64-2.12.efi`, menu entry `c6
 
 `/usr/local/sbin/c630-menu` ([scripts/c630-menu](scripts/c630-menu)) writes `/boot/grub/c630.cfg`:
 
-- a quiet entry and a `verbose debug` entry for every installed kernel, each with its own DTB copied to `/boot/c630boot/dtb-<kver>`
-- a **SAFE** entry per kernel: no Qualcomm firmware (`modprobe.blacklist=qcom_q6v5_pas,qcom_q6v5_mss,venus_core,ipa msm.skip_gpu=1`), using `/boot/c630boot/initrd-<kver>.pre-firmware` if saved
+- a quiet entry for every installed kernel, each with its own DTB copied to `/boot/c630boot/dtb-<kver>`
+- for the default kernel only (since 2026-11-20; `C630_ALL_EXTRAS=1` in `/etc/default/c630-menu` brings them back for every kernel): a `verbose debug` entry, and a **SAFE** entry with no Qualcomm firmware (`modprobe.blacklist=qcom_q6v5_pas,qcom_q6v5_mss,venus_core,ipa msm.skip_gpu=1`), using `/boot/c630boot/initrd-<kver>.pre-firmware` if saved
 - `modprobe.blacklist=ipa` on every normal entry
 - a **CONTROL** entry that boots the installer stick's own kernel and installer from the disk, so no USB is needed
-- default set in `/etc/default/c630-menu`: `C630_DEFAULT=7.2.9+deb14-arm64`, `C630_MODE=full` (or `safe`)
+- default set in `/etc/default/c630-menu`: `C630_DEFAULT=7.4.0-rc3-00444-g65e4fd942f72`, `C630_MODE=full` (or `safe`)
 - it refuses to write a menu whose default kernel has no entry, and it keeps the previous menu as `c630.cfg.prev`
 
 It runs automatically from `/etc/kernel/postinst.d`, `/etc/kernel/postrm.d` and `/etc/initramfs/post-update.d` (`zz-c630-menu`).
 
 ```sh
 sudo c630-menu                                   # regenerate
-sudo c630-menu --once c630-7.2.9+deb14-arm64                       # boot that entry once
-sudo c630-menu --once c630-7.2.9+deb14-arm64 "modprobe.blacklist=X" # once, with extra kernel options
+sudo c630-menu --once c630-7.4.0-rc3-00433-g8dac6df92a2e                       # boot that entry once
+sudo c630-menu --once c630-7.4.0-rc3-00433-g8dac6df92a2e "modprobe.blacklist=X" # once, with extra kernel options
 sudo c630-fw-rollback                                              # undo the firmware install, SAFE by default
 ```
 
@@ -61,9 +61,17 @@ One-time boots rely on GRUB 2.12 writing `grubenv` (`save_env`) on ext4 at boot.
 
 | Kernel | Status |
 |---|---|
-| 7.2.9+deb14 | **Default since 2026-10-10. Boots** (quiet and verbose). Battery (`yoga-c630-battery`, 55.6/60 Wh), AC adapter, both USB-C ports (UCSI) and the Bluetooth adapter (`hci0`) all work |
-| 6.12.107+deb13 | **Fallback. Boots.** Byte-identical to the installer stick's kernel. Initramfs predates the sid upgrade. No battery/USB-C drivers |
-| 6.12.111+deb13 | Untested under GRUB 2.12 |
+Installed as of 2026-11-20 (menu cleaned up that day; boot counts from the journal):
+
+| Kernel | Status |
+|---|---|
+| 7.4.0-rc3-00444-g65e4fd942f72 `#15` | **Default since 2026-11-20. Boots** (3 boots). Full hardware check clean: see [LOG.md](LOG.md#2026-11-20) |
+| 7.4.0-rc3-00433-g8dac6df92a2e `#12` | **Backup. Boots** (1 boot). Published as a GitHub release |
+| 7.4.0-rc2-00859-g23c62304dde2 | **Backup. Boots** (6 boots). Default 2026-11-16 to 11-20 |
+| 6.12.111+deb13 | **Backup, Debian stable kernel. Booted** twice (October, under GRUB 2.12). Untested under GRUB 2.14-5. No battery/USB-C drivers |
+| 7.3.5+deb14 | Debian sid kernel (`linux-image-arm64`). **Never booted** on this machine |
+
+Removed 2026-11-20: 7.4.0-rc3-00230, 7.4.0-rc3, 7.4.0-rc2-00706 (never booted), 7.4.0-rc2-00696 and the Debian 7.3.4 package (never booted). 7.2.9+deb14 and 6.12.107+deb13 were removed earlier.
 
 ## Still missing
 
