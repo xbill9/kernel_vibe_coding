@@ -52,13 +52,13 @@ Order of attack:
 | Keyboard in Wayland | broken | libinput sees event0 as `tablet_pad`. Workaround: weston x11 backend |
 | Touchpad | not working | |
 | USB-A | works | |
-| USB-C | works only if connected **at boot**, alongside USB-A | |
+| USB-C | without help only if connected **at boot**; with `gbgo-usbc-power` (scripts/, system/) chargers and devices also work when plugged in later (left port USB 2 only, right port USB 3); no DP alt mode | See USB-C.md |
 | Wi-Fi | works with Windows firmware (+ pd-mapper) | |
 | Bluetooth | works with a MAC workaround | systemd oneshot `Before=bluetooth.service` running `echo \| btmgmt -i hci0 public-addr <real MAC from Windows ipconfig /all>` |
 | Battery | SBS gauge at `0x0b` on `i2c@890000` (`sbs-battery`, in the default DTB); **charges** with `gbgo-charge.service` relaying the gauge's requests to the BQ25710 charger at `0x09` | See DEBIAN.md "Battery", "Charging" |
 | Camera | Chicony 720p UVC on internal hub port 4, powered by TLMM 13 (gpio-hog in the default DTB) | See DEBIAN.md "Camera" |
 | Audio | **speakers work** (audio DTB is the default; 16-bit stereo on tertiary MI2S; `gbgo-audio-kick` restarts the DSP if the card misses a boot); headphones and mic untested | See DEBIAN.md "Audio" |
-| Video decode | Venus (H.264, VP8, VP9, HEVC, MPEG-2) works in mpv/ffmpeg via V4L2; **browsers decode in software** (no VA-API driver) | See DEBIAN.md "Video decode" |
+| Video decode | Venus (H.264, VP8, VP9, HEVC, MPEG-2) works in mpv/ffmpeg via V4L2. Firefox (and Brave) decode H.264/VP9 on Venus through VA-API with [snowf14k3/venus-vaapi-driver](https://github.com/snowf14k3/venus-vaapi-driver) plus Knifethrower's zero-copy patches (to be sent upstream; see [linux-arm-adventures#1](https://github.com/xbill9/linux-arm-adventures/issues/1)) | See DEBIAN.md "Video decode" |
 | UFS | works | keep Windows on it (firmware source); run Linux from USB/SD |
 
 ### Booting it reliably
