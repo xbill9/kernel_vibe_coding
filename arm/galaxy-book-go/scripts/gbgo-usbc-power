@@ -1,0 +1,166 @@
+#!/bin/sh
+# Galaxy Book Go: USB-C chargers and devices plugged in after boot.
+# Runs as gbgo-usbc-power.service (polls every 2 s).
+#
+# Each USB-C port has a Samsung S2MM005 PD controller (0x33) and an SM5508 MUIC
+# (0x14) on its own I2C bus (DSDT EMEC: I2C3 = 888000.i2c, I2C8 = a84000.i2c).
+# At boot the firmware negotiates the voltage and closes the port's "consumer"
+# switch (VBUS -> BQ25710 charger). After a replug nothing does, so the charger
+# sits at 5 V with the switch open and the battery never charges. On Windows,
+# Samsung's EmuEC.sys does it; the commands come from its set_CP_Switch
+# (decompiled) and Samsung's s2mm005 kernel driver (select_pdo):
+#   PD state            reg 0x0020 byte 0 (21 = PE_SNK_Ready)
+#   source PDOs         reg 0x0260 (u32 header, then u32 PDOs)
+#   sink PDOs (ours)    reg 0x0220
+#   current request     reg 0x0244 (RDO; object position = bits 30:28)
+#   select PDO n        reg 0x0010 <- 03 03 n, then 03 02 11 (renegotiate)
+#   CP switch state     reg 0x0010 <- 03 92, read 4 bytes at 0x0014 (byte 1 = consumer)
+#   consumer switch on  reg 0x0010 <- 03 91 00 01 00 02
+#   clear PD interrupt  reg 0x0010 <- 01;  MUIC: read INT1/INT2 (0x03/0x04)
+# Devices: the laptop supplies 5 V through a PMIC GPIO per port (EmuEC
+# Set_Source_out5V, GPIO functions 5/0xd = ACPI PM01 132/134 = PM6150 GPIO5/GPIO7;
+# port 1 confirmed by switching it off/on under a USB stick). The firmware only
+# turns it on for devices attached at boot. 5 V is on only while the PD chip
+# reports a device we must power (FUNC_STATE byte 3: ATTACH_DONE + IS_SOURCE),
+# off otherwise, and never while that port is a sink (charger attached).
+# A gpioset process per port holds the line (released lines revert).
+# Charge LED (PM6150L LPG TRI-LED: ch1 red, ch2 green, ch3 blue; DT labels
+# gbgo:red/green/blue): charging at the full contract (>= 15 V) blue, at a lower
+# voltage red, charger + battery full green, on battery <= LOW_PCT % red blinking.
+#   gbgo-usbc-power          loop (the service)
+#   gbgo-usbc-power once     one pass, verbose
+PD=0x33
+MUIC=0x14
+# The sink capabilities list up to 20 V. Windows (EmuEC) takes the most power
+# among PDOs below 15.001 V, i.e. up to 15 V (the boot firmware picks 12 V).
+CAP_MV=15000
+LOW_PCT=10
+BAT=/sys/class/power_supply/sbs-4-000b
+V=${1:-loop}
+
+bus_of() {
+	for d in /sys/bus/i2c/devices/i2c-*; do
+		case $(readlink -f "$d") in */"$1"/*) echo "${d##*-}"; return;; esac
+	done
+}
+log() { echo "$*"; }
+
+# rd <bus> <reg16> <n>: n bytes as decimal words
+rd() { i2ctransfer -f -y "$1" w2@$PD $(printf '0x%02x 0x%02x' $(($2 >> 8)) $(($2 & 255))) r"$3" 2>/dev/null; }
+cmd() { b=$1; shift; i2ctransfer -f -y "$b" w$(($# + 2))@$PD 0x00 0x10 "$@" 2>/dev/null; }
+
+# u32 little-endian from a byte list, word index i (0-based)
+u32() { i=$1; shift; shift $((i * 4)); echo $(( $1 | ($2 << 8) | ($3 << 16) | ($4 << 24) )); }
+
+# fixed-supply PDO -> millivolts (0 if not a fixed supply)
+pdo_mv() { [ $(( ($1 >> 30) & 3 )) -eq 0 ] && echo $(( (($1 >> 10) & 1023) * 50 )) || echo 0; }
+
+# acknowledge the PD controller and MUIC interrupts, as EmuEC does
+ack() {
+	i2cget -f -y "$1" $MUIC 0x03 >/dev/null 2>&1; i2cget -f -y "$1" $MUIC 0x04 >/dev/null 2>&1
+	cmd "$1" 0x01
+}
+
+# charge LED --------------------------------------------------------------
+led_dir() { for n in "$@"; do [ -d "/sys/class/leds/$n" ] && { echo "/sys/class/leds/$n"; return; }; done; }
+LR=$(led_dir gbgo:red gbgo-test-ch1); LG=$(led_dir gbgo:green gbgo-test-ch2); LB=$(led_dir gbgo:blue gbgo-test-ch3)
+led_last=
+led_set() {
+	[ "$1" = "$led_last" ] && return; led_last=$1
+	for l in "$LR" "$LG" "$LB"; do [ -n "$l" ] && { echo none > "$l/trigger"; echo 0 > "$l/brightness"; }; done
+	case $1 in
+		green) [ -n "$LG" ] && echo 255 > "$LG/brightness" ;;
+		blue) [ -n "$LB" ] && echo 255 > "$LB/brightness" ;;
+		red) [ -n "$LR" ] && echo 255 > "$LR/brightness" ;;
+		redblink) [ -n "$LR" ] && { echo timer > "$LR/trigger"; echo 500 > "$LR/delay_on"; echo 500 > "$LR/delay_off"; } ;;
+	esac
+	log "charge LED: $1"
+}
+led_update() {
+	bst=$(cat "$BAT/status" 2>/dev/null); cap=$(cat "$BAT/capacity" 2>/dev/null)
+	if [ "$CHG" = 1 ]; then
+		if [ "$bst" = Full ]; then led_set green
+		elif [ "${CHG_MV:-0}" -ge 15000 ]; then led_set blue
+		else led_set red; fi
+	elif [ "${cap:-100}" -le "$LOW_PCT" ]; then led_set redblink
+	else led_set off; fi
+}
+
+# 5 V for devices: hold PM6150 GPIO <line> at <0|1> with one gpioset per port
+src5v() {
+	line=$1; want=$2; f=/run/gbgo-usbc-5v-$line
+	[ -f "$f" ] && [ "$(cut -d' ' -f1 "$f")" = "$want" ] && kill -0 "$(cut -d' ' -f2 "$f")" 2>/dev/null && return
+	[ -f "$f" ] && kill "$(cut -d' ' -f2 "$f")" 2>/dev/null && sleep 0.3
+	gpioset -c "$CHIP" "$line=$want" & echo "$want $!" > "$f"
+	log "PM6150 GPIO$((line + 1)) (5 V out) -> $want"
+}
+
+port() {
+	b=$1; line=$2
+	set -- $(rd "$b" 0x0020 4); st=$(( ${1:-0} )); f3=$(( ${4:-0} ))
+	# device attached that we power: ATTACH_DONE (bit 0) and IS_SOURCE (bit 1)
+	if [ $((f3 & 3)) -eq 3 ] && [ "$st" -lt 15 ]; then src5v "$line" 1; [ "$V" = once ] && log "i2c-$b: device attached, 5 V on"; return; fi
+	src5v "$line" 0
+	# charger without USB PD (plain 5 V): attached, we are the sink, PD never
+	# reaches SNK_Ready (state 29 error recovery seen). Close the switch anyway:
+	# the BQ25710 accepts 5 V (AC_STAT seen with 4.67 V).
+	if [ $((f3 & 3)) -eq 1 ] && [ "$st" -ne 21 ]; then
+		CHG=1; CHG_MV=5000
+		cmd "$b" 0x03 0x92; set -- $(rd "$b" 0x0014 4)
+		if [ "$(( ${2:-0} ))" -ne 1 ]; then
+			log "i2c-$b: charger without USB PD (state $st), 5 V: consumer switch on"
+			cmd "$b" 0x03 0x91 0x00 0x01 0x00 0x02
+			ack "$b"; sleep 1
+			[ -x /usr/local/sbin/gbgo-charge ] && /usr/local/sbin/gbgo-charge once
+		elif [ "$V" = once ]; then log "i2c-$b: charger without USB PD, 5 V, consumer switch on"; fi
+		return
+	fi
+	if [ "$st" -ne 21 ]; then [ "$V" = once ] && log "i2c-$b: PD state $st (no charger)"; return; fi
+
+	# best source PDO not above the highest voltage our sink capabilities allow
+	snk=$(rd "$b" 0x0220 32); max=0
+	n=$(( ($(u32 0 $snk) >> 12) & 7 ))
+	for i in $(seq 1 "$n"); do mv=$(pdo_mv "$(u32 "$i" $snk)"); [ "$mv" -gt "$max" ] && max=$mv; done
+	[ "$max" -gt "$CAP_MV" ] && max=$CAP_MV
+	src=$(rd "$b" 0x0260 32); best=1; bestmv=0
+	n=$(( ($(u32 0 $src) >> 12) & 7 ))
+	for i in $(seq 1 "$n"); do
+		mv=$(pdo_mv "$(u32 "$i" $src)")
+		[ "$mv" -le "$max" ] && [ "$mv" -gt "$bestmv" ] && { best=$i; bestmv=$mv; }
+	done
+	set -- $(rd "$b" 0x0244 4); pos=$(( (${4:-0} >> 4) & 7 ))
+	CHG=1; CHG_MV=$(pdo_mv "$(u32 "$pos" $src)")
+	if [ "$pos" -ne "$best" ]; then
+		log "i2c-$b: charger attached, requesting PDO $best (${bestmv} mV, was PDO $pos)"
+		cmd "$b" 0x03 0x03 "$best"
+		cmd "$b" 0x03 0x02 0x11
+		sleep 2
+		ack "$b"
+	fi
+
+	# switch status reads 00 00 00 00 when open, 00 01 00 01 with the consumer switch on
+	cmd "$b" 0x03 0x92; set -- $(rd "$b" 0x0014 4); c=$(( ${2:-0} ))
+	if [ "$c" -ne 1 ]; then
+		log "i2c-$b: consumer switch off, turning it on"
+		cmd "$b" 0x03 0x91 0x00 0x01 0x00 0x02
+		ack "$b"
+		# start charging now instead of at gbgo-charge's next 60 s pass
+		sleep 1
+		[ -x /usr/local/sbin/gbgo-charge ] && /usr/local/sbin/gbgo-charge once
+	elif [ "$V" = once ]; then
+		log "i2c-$b: charger attached, PDO $pos, consumer switch on"
+	fi
+}
+
+modprobe i2c-dev 2>/dev/null
+# port 0 = I2C8 (a84000.i2c), 5 V = PM6150 GPIO5 (line 4); port 1 = I2C3 (888000.i2c), GPIO7 (line 6)
+B0=$(bus_of a84000.i2c); B1=$(bus_of 888000.i2c)
+CHIP=$(gpiodetect | awk '/pmic@0:gpio/{print $1; exit}')
+[ -n "$CHIP" ] || { echo "PM6150 GPIO chip not found" >&2; exit 1; }
+[ -n "$B0" ] && [ -n "$B1" ] || { echo "USB-C I2C buses not found" >&2; exit 1; }
+case $V in
+	once) CHG=0; port "$B0" 4; port "$B1" 6; led_update ;;
+	loop) trap 'for f in /run/gbgo-usbc-5v-*; do kill "$(cut -d" " -f2 "$f")" 2>/dev/null; rm -f "$f"; done; exit 0' TERM INT
+		while :; do CHG=0; CHG_MV=0; port "$B0" 4; port "$B1" 6; led_update; sleep 2; done ;;
+	*) sed -n '2,3p' "$0"; exit 1 ;;
+esac
