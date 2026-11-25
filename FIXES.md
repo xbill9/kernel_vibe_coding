@@ -12,6 +12,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
+| F24 | ❌ | samsung | user unit `xfce4-notifyd.service` fails at login: D-Bus activates it before GNOME Shell takes `org.freedesktop.Notifications` | none yet |
 | F23 | ❌ | debian (Galaxy Book Go) | `qcom-spmi-adc-tm5`: `Failed to create device link` for two thermistors on rc3 `#9` | none yet |
 | F22 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#15`: `geoclue.service` start times out once | none yet |
 | F21 | ❌ | debian13u (Yoga 7 14IRL8) | `geoclue.service` start timed out once at boot on rc3 `#14`; a manual start succeeds | none yet |
@@ -20,7 +21,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 | F18 | 🟢 | debian (Galaxy Book Go) | new build installed with no Book Go boot entry | `82af936` |
 | F17 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#10`: five "new" error lines, four of them intermittent on rc2 as well | none yet |
 | F16 | ❌ | yoga9i | iwlwifi `session protection is over` on a failed roam | none yet |
-| F15 | 🟢 | yoga9i | user unit `gnome-software.service` failed at every login | `intel/autostart/` override hides the autostart copy |
+| F15 | 🟢 | yoga9i; samsung ⚠️ | user unit `gnome-software.service` failed at every login | `intel/autostart/` override hides the autostart copy |
 | F14 | ❌ | debian (Yoga 7 14IRL8) | `pam_wtmpdb` cannot write `wtmp.db` at logout | none yet |
 | F13 | 🟢 | debian (Yoga C630) | `make loop` stops: no install record | see F13 |
 | F12 | ❌ | debian (Yoga C630) | `Bluetooth: hci0: unexpected event for opcode 0x0000` | none yet |
@@ -52,6 +53,15 @@ Take the next number and add it to the top of the index and as a section below. 
 ```
 
 ---
+
+### F24 — `xfce4-notifyd.service` fails at every GNOME login on samsung
+
+- Status: ❌ open; cause found, no fix applied
+- Machine / kernel: samsung, 7.4.0-rc4-xbill+ `#16-2ce1fd5b` (`v7.4-rc4-162-g8d7fe9885c62`), GNOME on Wayland (mutter 51.0), `xfce4-notifyd` 0.9.7-2
+- Symptom: `make feedback` lists `● xfce4-notifyd.service  loaded failed failed XFCE notifications service` under `systemctl --user --failed`. Journal, 2026-11-24 13:28: `xfce4-notifyd[4285]: It appears your Wayland compositor does not support the Layer Shell protocol`, then `Main process exited, code=exited, status=1/FAILURE`.
+- Cause: a race at login, userspace only. At 13:28:39.123 `goa-daemon` (pid 4244) asks for `org.freedesktop.Notifications` before GNOME Shell has claimed that name, so dbus-daemon activates the service file that names it: `/usr/share/dbus-1/services/org.xfce.xfce4-notifyd.Notifications.service` (`SystemdService=xfce4-notifyd.service`). xfce4-notifyd needs Layer Shell, which mutter does not provide, and exits. GNOME then owns the name (`busctl --user status org.freedesktop.Notifications`: `Comm=gjs`, PID 4267), so notifications work. The XDG autostart entry is not involved (`OnlyShowIn=XFCE;`). `make loop` does not see this, since it counts system units.
+- Fix: none yet. Candidate, untested: `systemctl --user mask xfce4-notifyd.service`, so the early activation fails and the client retries against GNOME; or remove `xfce4-notifyd` if Xfce is not used on samsung.
+- Checked: untested (no fix). Cause read from `journalctl --user -b` on 2026-11-25.
 
 ### F23 — `qcom-spmi-adc-tm5` fails to create device links on the Galaxy Book Go
 
@@ -134,6 +144,7 @@ Take the next number and add it to the top of the index and as a section below. 
 - Fix: `intel/autostart/org.gnome.Software.desktop` (`Hidden=true`) overrides the autostart entry for the user, so only the systemd unit starts it, which is the path D-Bus activation already uses (`SystemdService=gnome-software.service`). Install: `install -Dm644 intel/autostart/org.gnome.Software.desktop ~/.config/autostart/org.gnome.Software.desktop`
 - Checked: `journalctl --user -b N | grep -c "start-limit-hit"` on 2026-11-17: 1 on each of boots 0, -1, -2, -3; `busctl --user status org.gnome.Software` shows PID 3941 owns the name and gnome-software is running. After the fix, 2026-11-17: `desktop-file-validate` exit 0; with the autostart copy stopped, `systemctl --user start gnome-software.service` gives `active`, and `busctl --user status org.gnome.Software` shows `UserUnit=gnome-software.service`. After a reboot into 7.4.0-rc3 `#20-4e83ed55` and a fresh login, 2026-11-17 15:31: `systemctl --user --failed` is empty; `journalctl --user -b` has one `Started gnome-software.service`, no `Unable to acquire bus name`, no `start-limit-hit` and no `app-gnome-org.gnome.Software-*.scope`; `busctl --user status org.gnome.Software` shows `UserUnit=gnome-software.service` (PID 4179).
 - Also on debian13u (Yoga 7 14IRL8), 7.4.0-rc3+ `#14-24598a3e`, 2026-11-20: the same `start-limit-hit`, and `journalctl --user -b` has 3 `Unable to acquire bus name 'org.gnome.Software'` lines. The override is not installed there (`~/.config/autostart/org.gnome.Software.desktop` is missing). Not yet applied; whether it fixes debian13u is untested.
+- Also on samsung, 7.4.0-rc4-xbill+ `#16-2ce1fd5b`, 2026-11-25: the same symptom, with 1 `start-limit-hit` and 3 `Unable to acquire bus name 'org.gnome.Software'` in `journalctl --user -b`, and `busctl --user status org.gnome.Software` showing `UserUnit=app-gnome-org.gnome.Software-4325.scope`, the autostart copy. Override installed 2026-11-25: `desktop-file-validate` exit 0; after stopping that scope, `systemctl --user start gnome-software.service` gives `active`, and `busctl` shows `UserUnit=gnome-software.service` (PID 21837). Not yet checked across a fresh login (⚠️).
 
 ### F14 — `pam_wtmpdb` cannot write `wtmp.db` at logout
 
