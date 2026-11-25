@@ -12,7 +12,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
-| F24 | ❌ | samsung | user unit `xfce4-notifyd.service` fails at login: D-Bus activates it before GNOME Shell takes `org.freedesktop.Notifications` | none yet |
+| F24 | ❌ | samsung, debian (Samsung 730QED) | user unit `xfce4-notifyd.service` fails at login: D-Bus activates it before GNOME Shell takes `org.freedesktop.Notifications` | none yet |
 | F23 | ❌ | debian (Galaxy Book Go) | `qcom-spmi-adc-tm5`: `Failed to create device link` for two thermistors on rc3 `#9` | none yet |
 | F22 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#15`: `geoclue.service` start times out once | none yet |
 | F21 | ❌ | debian13u (Yoga 7 14IRL8) | `geoclue.service` start timed out once at boot on rc3 `#14`; a manual start succeeds | none yet |
@@ -26,7 +26,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 | F13 | 🟢 | debian (Yoga C630) | `make loop` stops: no install record | see F13 |
 | F12 | ❌ | debian (Yoga C630) | `Bluetooth: hci0: unexpected event for opcode 0x0000` | none yet |
 | F11 | 🟢 | debian (Yoga C630) | built-in Wi-Fi appears ~95 s after boot | `34d4e11` (mask) |
-| F10 | ❌ | debian (Yoga 7 14IRL8) | `Driver 'pcspkr' is already registered` at boot | none; avoided by `localmodconfig` on `#12` |
+| F10 | ❌ | debian (Yoga 7 14IRL8), debian (Samsung 730QED) | `Driver 'pcspkr' is already registered` at boot | none; avoided by `localmodconfig` on `#12` |
 | F9 | 🟢 | debian (Yoga 7 14IRL8) | systemd `bpf-restrict-fs` cannot load: no kernel BTF | config: `DEBUG_INFO_BTF=y` |
 | F8 | 🟢 | samsung13 | `make loop` reports hashed `%p` pointers as new error lines | `94316e9` |
 | F7 | ❌ | yoga9i, debian13u (Yoga 7 14IRL8) | Wacom digitizer: `device returned incorrect report (0 vs 11 expected)` | none yet |
@@ -62,6 +62,7 @@ Take the next number and add it to the top of the index and as a section below. 
 - Cause: a race at login, userspace only. At 13:28:39.123 `goa-daemon` (pid 4244) asks for `org.freedesktop.Notifications` before GNOME Shell has claimed that name, so dbus-daemon activates the service file that names it: `/usr/share/dbus-1/services/org.xfce.xfce4-notifyd.Notifications.service` (`SystemdService=xfce4-notifyd.service`). xfce4-notifyd needs Layer Shell, which mutter does not provide, and exits. GNOME then owns the name (`busctl --user status org.freedesktop.Notifications`: `Comm=gjs`, PID 4267), so notifications work. The XDG autostart entry is not involved (`OnlyShowIn=XFCE;`). `make loop` does not see this, since it counts system units.
 - Fix: none yet. Candidate, untested: `systemctl --user mask xfce4-notifyd.service`, so the early activation fails and the client retries against GNOME; or remove `xfce4-notifyd` if Xfce is not used on samsung.
 - Checked: untested (no fix). Cause read from `journalctl --user -b` on 2026-11-25.
+- Also on debian (Samsung 730QED, DMI `P12RGJ`), 7.4.0-rc4+ `#16-a4925fdb`, 2026-11-25: login at 08:44:52, the same `Layer Shell` line and exit status 1 at 08:45:07, and the same trigger in `journalctl --user -b` (`Activating via systemd: service name='org.freedesktop.Notifications' unit='xfce4-notifyd.service' requested by ... goa-daemon`). The user journal has the same failure on two logins on 2026-09-21 (boots -29 and -28, both Debian 7.2.6+deb14-amd64) and on none of the logins in between, which confirms it is not a kernel problem and only happens on some logins. How often it loses the race is untested.
 
 ### F23 — `qcom-spmi-adc-tm5` fails to create device links on the Galaxy Book Go
 
@@ -191,6 +192,7 @@ Take the next number and add it to the top of the index and as a section below. 
 - Fix: none. Candidate: `blacklist snd_pcsp` in `/etc/modprobe.d/` (untested).
 - Checked: 2026-11-16, `grep pcspkr /lib/modules/*/modules.alias`; `lsmod` shows `pcspkr` only. The PC Speaker line appears on boot -1 with no error.
 - Update 2026-11-19: gone on debian13u `#12-32f07622` only because `localmodconfig` no longer builds `snd_pcsp` ([YOGA7-TUNING.md](intel/docs/YOGA7-TUNING.md)); the clash is still there in any config that builds both. `make loop` against `#10` lists it as `-1`.
+- Update 2026-11-25: also on debian (Samsung 730QED), once per boot on 7.4.0-rc4+ `#16-a4925fdb` and on the three boots before it (two rc4 builds, one rc3+). The cause is the same: this build has `CONFIG_INPUT_PCSPKR=m` and `CONFIG_SND_PCSP=m`, both modules answer `platform:pcspkr` in `modules.alias`, and `lsmod` shows `pcspkr` only. `make loop` does not flag it because the baseline boot has it too.
 
 ### F9 — systemd `bpf-restrict-fs` fails: no kernel BTF
 
