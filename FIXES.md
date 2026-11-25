@@ -12,6 +12,7 @@ One entry per problem found in the kernel loop, open or fixed: what broke, why, 
 
 | # | Status | Machine | Problem | Fix |
 |---|---|---|---|---|
+| F25 | ❌ | debian (Galaxy Book Go) | `make loop` exit 1 on rc4 `#12`: `sbs-battery` property reads fail with `-5`/`-6`, on every boot, different properties each time | none yet |
 | F24 | ❌ | samsung, debian (Samsung 730QED) | user unit `xfce4-notifyd.service` fails at login: D-Bus activates it before GNOME Shell takes `org.freedesktop.Notifications` | none yet |
 | F23 | ❌ | debian (Galaxy Book Go) | `qcom-spmi-adc-tm5`: `Failed to create device link` for two thermistors on rc3 `#9` | none yet |
 | F22 | ❌ | debian (Yoga C630) | `make loop` exit 1 on rc3 `#15`: `geoclue.service` start times out once | none yet |
@@ -53,6 +54,15 @@ Take the next number and add it to the top of the index and as a section below. 
 ```
 
 ---
+
+### F25 — `sbs-battery` property reads fail on the Galaxy Book Go, on every boot
+
+- Status: ❌ open. Present on every boot checked, on rc3 and rc4; the properties that fail differ from boot to boot, so `make loop` reports them as new lines.
+- Machine / kernel: debian (Galaxy Book Go), `7.4.0-rc4-efivars-00260-g4dce97c6c265-dirty` `#12-88391ef9` against `7.4.0-rc3-dirty` `#5` (boot -1)
+- Symptom: `make loop` exit 1 on 2026-11-25, "7 distinct new kernel error line(s), 0 new oops/warning line(s)". All seven are `power_supply sbs-4-000b: driver failed to report `<property>' property: -5` (or `-6`), for `charge_full_design`, `charge_now`, `cycle_count`, `voltage_min_design`, `health` and `voltage_max_design`. One line at 09:11:15, ten within the second 09:13:01. Kernel error lines 9 → 15; no failed system units; `tainted` 0.
+- Cause: untested. The driver also logs `sbs-battery 4-000b: I2C adapter does not support I2C_FUNC_SMBUS_READ_BLOCK_DATA.` at probe, on this boot and on boot -1. Whether the failed reads are bus errors on `i2c-4`, the battery not answering, or a reader polling too fast is untested.
+- Fix: none yet
+- Checked: 2026-11-25. `journalctl -k -b <n> -p err | grep -c sbs-4-000b` for boots 0 to -8: 11, 3, 6, 4, 8, 3, 3, 1, 2 (boot 0 is rc4 `#12`; boots -1 to -8 are rc3 builds). The lines that left the baseline include three of the same kind (`capacity_error_margin`, `current_avg`, `manufacture_year`). `upower` at 09:2x on this boot reads the battery: `fully-charged`, 100%, 40.82 Wh, 8.626 V. Whether the count on `#12` (11) is a real increase over rc3 (1 to 8) is untested: one boot of `#12`.
 
 ### F24 — `xfce4-notifyd.service` fails at every GNOME login on samsung
 
