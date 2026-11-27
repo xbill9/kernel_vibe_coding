@@ -8,7 +8,7 @@ Without help, the USB-C ports only work for things connected at power-on: the bo
 |---|---|---|
 | USB PD charger plugged in after boot | charges (15 V, ~2 A) within ~3 s | same |
 | USB 2 device plugged in after boot | works (internal hub port 1) | works (hub port 2) |
-| USB 3 device plugged in after boot | enumerates at USB 2 speed: this port has no USB 3 lines | works at 5 Gbps |
+| USB 3 device plugged in after boot | enumerates at USB 2 speed: this port has no USB 3 lines | 5 Gbps with the PS8743 switch chip enabled (see below); 480 Mb/s without |
 | Plain 5 V charger without USB PD | not working (see Open) | same |
 | Video out (DP Alt Mode) | not done | not done |
 
@@ -84,9 +84,30 @@ Windows used red/orange (charging) and green (full) plus low-battery/error state
 - `gpioset -t 0` releases the line at once and it reverts; keep a `gpioset` running.
 - After a full charge the gauge keeps its FULLY_CHARGED flag (BatteryStatus bit 5) for a while: seen still set at 98 %, so "Full" and no charging right after a replug is the gauge's hysteresis, not a fault (where it clears was not measured).
 
+## USB 3 on the right port: the PS8743 switch chip (2026-11-27)
+
+Measured on the Wi-Fi model (NP340XLA), mainline `7.4.0-rc4`.
+
+- The USB 3 lanes of the right port go through a Parade PS8743 at `0x10` on `i2c@884000` (DSDT `I2C2`). The device tree leaves that bus disabled; [scripts/gbgo-dtb-patch](scripts/gbgo-dtb-patch) enables it with `GBGO_I2C2=1`. ID registers `0xf1..0xf3` read `0x0b 0x41 0x87`, the values in the ChromeOS EC driver (`driver/usb_mux/ps8743.h`).
+- The chip's enable pin is **TLMM GPIO 67**. It is the only pin that differs between a boot with a device on the port (output, high) and a boot with the port empty (input, low). Driving it low makes `0x10` stop answering and a connected SSD drop to 480 Mb/s; driving it high brings the chip back with default registers.
+- The firmware raises the pin and sets the registers only when a device is on the port at boot:
+
+| Register | Firmware value | Default | ChromeOS driver name |
+|---|---|---|---|
+| `0x00` | `0xba` | `0x00` | mode: USB on, flip off, DP off, all three under register control |
+| `0x32` | `0xa0` | `0x00` | USB equaliser, host side |
+| `0x35` | `0x40` | `0x00` | not named |
+| `0x3b` | `0x80` | `0x00` | USB equaliser, connector side (14.8 dB) |
+| `0x3e` | `0x40` | `0x00` | not named |
+
+- `0x42..0x44` read `0x11 0xd0 0xd0` with a SuperSpeed link up and `0x42 0x00 0x80` without, and do not take writes.
+- With the chip on, replugs need no further writes: 4 of 4 were SuperSpeed (same orientation, flipped, and after the 5 V had dropped), with the registers byte-identical each time.
+- `gbgo-usbc-power` now does this itself (`mux`): when the bus exists and the mode register does not read `0xba`, it holds TLMM 67 high and writes the five values. Tested by switching the chip off and restarting the service: `PS8743 (USB 3 switch, right port): enabled, mode 0xba`, registers match the firmware's. By hand (pin, five writes, replug): `usb 2-1: new SuperSpeed USB device`, 5000 Mb/s.
+- **Untested:** the service after a boot with the port empty; the chip's power draw when it stays on with nothing attached (the firmware leaves it off then); the LTE/5G model.
+
 ## Open
 
 - **Chargers without USB PD:** the S2MM005 attaches as sink (state 17), gets no source capabilities, goes to error recovery and disconnects, then re-detects. Windows has a separate path through the SM5508 MUIC (DCP detection, Samsung AFC 9/12 V over D+/D-, EmuEC `sm5508_*`, `AFC_TXD` 0x46/0x79), not replicated.
-- **DP Alt Mode** (right port): needs `mdss_dp`, Alt Mode VDMs through the S2MM005, and the Parade PS8743B mux (EmuEC `PS8743B_*`, `[DPMUX] USB3_ONLY / DP2_LANE_USB3 / DP4_LANE`; no Linux driver).
+- **DP Alt Mode** (right port): needs `mdss_dp`, Alt Mode VDMs through the S2MM005, and the Parade PS8743 mux at `0x10` on `i2c@884000`, mode register bits 6/7 (EmuEC `PS8743B_*`, `[DPMUX] USB3_ONLY / DP2_LANE_USB3 / DP4_LANE`; no Linux driver).
 - Interrupts are polled; the PD/MUIC IRQ lines could drive the service instead.
 - EmuEC has a second board-variant GPIO table (and its INF a separate 5G subsystem ID, `C1A1144D`): the 5 V GPIOs may differ on the LTE/5G model.

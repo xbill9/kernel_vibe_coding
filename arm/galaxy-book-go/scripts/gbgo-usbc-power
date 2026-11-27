@@ -27,10 +27,19 @@
 # Charge LED (PM6150L LPG TRI-LED: ch1 red, ch2 green, ch3 blue; DT labels
 # gbgo:red/green/blue): charging at the full contract (>= 15 V) blue, at a lower
 # voltage red, charger + battery full green, on battery <= LOW_PCT % red blinking.
+# USB 3 on the right port goes through a Parade PS8743 switch chip (0x10 on
+# 884000.i2c, DSDT I2C2; that bus needs gbgo-dtb-patch GBGO_I2C2=1). Its enable
+# pin is TLMM GPIO 67. The firmware raises the pin and sets five registers only
+# when a device is on the port at boot; after a boot with the port empty the
+# chip is off and a hot-plugged USB 3 device runs at 480 Mb/s (2026-11-27).
+# mux() raises the pin and writes the firmware's values (read from the chip in
+# a boot with a device attached). Without the bus in the DTB it does nothing.
 #   gbgo-usbc-power          loop (the service)
 #   gbgo-usbc-power once     one pass, verbose
 PD=0x33
 MUIC=0x14
+MUX=0x10
+MUX_MODE=0xba
 # The sink capabilities list up to 20 V. Windows (EmuEC) takes the most power
 # among PDOs below 15.001 V, i.e. up to 15 V (the boot firmware picks 12 V).
 CAP_MV=15000
@@ -98,6 +107,21 @@ src5v() {
 	[ -f "$f" ] && kill "$(cut -d' ' -f2 "$f")" 2>/dev/null && sleep 0.3
 	gpioset -c "$CHIP" "$line=$want" & echo "$want $!" > "$f"
 	log "PM6150 GPIO$((line + 1)) (5 V out) -> $want"
+}
+
+# PS8743 on: TLMM 67 high, then the firmware's register values (mode last)
+mux() {
+	[ -n "$B2" ] && [ -n "$TLMM" ] || return 0
+	[ "$(i2ctransfer -y "$B2" w1@$MUX 0x00 r1 2>/dev/null)" = "$MUX_MODE" ] && return 0
+	f=/run/gbgo-usbc-mux
+	if ! { [ -f "$f" ] && kill -0 "$(cat "$f")" 2>/dev/null; }; then
+		gpioset -c "$TLMM" 67=1 & echo $! > "$f"
+		sleep 0.3
+	fi
+	for rv in "0x32 0xa0" "0x35 0x40" "0x3b 0x80" "0x3e 0x40" "0x00 $MUX_MODE"; do
+		i2ctransfer -y "$B2" w2@$MUX $rv 2>/dev/null || { log "PS8743: write $rv failed"; return 0; }
+	done
+	log "PS8743 (USB 3 switch, right port): enabled, mode $MUX_MODE"
 }
 
 port() {
@@ -187,9 +211,10 @@ B0=$(bus_of a84000.i2c); B1=$(bus_of 888000.i2c)
 CHIP=$(gpiodetect | awk '/pmic@0:gpio/{print $1; exit}')
 [ -n "$CHIP" ] || { echo "PM6150 GPIO chip not found" >&2; exit 1; }
 [ -n "$B0" ] && [ -n "$B1" ] || { echo "USB-C I2C buses not found" >&2; exit 1; }
+B2=$(bus_of 884000.i2c); TLMM=$(gpiodetect | awk '/3500000.pinctrl/{print $1; exit}')
 case $V in
-	once) CHG=0; port "$B0" 4; port "$B1" 6; led_update ;;
-	loop) trap 'for f in /run/gbgo-usbc-5v-*; do kill "$(cut -d" " -f2 "$f")" 2>/dev/null; rm -f "$f"; done; exit 0' TERM INT
-		while :; do CHG=0; CHG_MV=0; port "$B0" 4; port "$B1" 6; led_update; sleep 2; done ;;
+	once) CHG=0; mux; port "$B0" 4; port "$B1" 6; led_update ;;
+	loop) trap 'for f in /run/gbgo-usbc-5v-*; do kill "$(cut -d" " -f2 "$f")" 2>/dev/null; rm -f "$f"; done; kill "$(cat /run/gbgo-usbc-mux 2>/dev/null)" 2>/dev/null; rm -f /run/gbgo-usbc-mux; exit 0' TERM INT
+		while :; do CHG=0; CHG_MV=0; mux; port "$B0" 4; port "$B1" 6; led_update; sleep 2; done ;;
 	*) sed -n '2,3p' "$0"; exit 1 ;;
 esac
