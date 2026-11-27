@@ -35,6 +35,11 @@ MUIC=0x14
 # among PDOs below 15.001 V, i.e. up to 15 V (the boot firmware picks 12 V).
 CAP_MV=15000
 LOW_PCT=10
+# readings in a row (2 s apart) before the 5 V to a device is switched off, and
+# before an attached port that never reaches a PD contract is treated as a
+# charger without USB PD
+OFF_PASSES=3
+NOPD_PASSES=3
 BAT=/sys/class/power_supply/sbs-4-000b
 V=${1:-loop}
 
@@ -107,12 +112,27 @@ port() {
 	[ $# -eq 4 ] || { [ "$V" = once ] && log "i2c-$b: PD controller did not answer, port left as it is"; return 0; }
 	st=$(( ${1:-0} )); f3=$(( ${4:-0} ))
 	# device attached that we power: ATTACH_DONE (bit 0) and IS_SOURCE (bit 1)
-	if [ $((f3 & 3)) -eq 3 ] && [ "$st" -lt 15 ]; then src5v "$line" 1; [ "$V" = once ] && log "i2c-$b: device attached, 5 V on"; return; fi
+	if [ $((f3 & 3)) -eq 3 ] && [ "$st" -lt 15 ]; then eval "off_$line=0 nopd_$line=0"; src5v "$line" 1; [ "$V" = once ] && log "i2c-$b: device attached, 5 V on"; return; fi
+	# A port we are powering reads "no device" for a pass while the controller
+	# re-runs its attach detection (2026-11-27, 7.4-rc4: 5 V dropped under a
+	# mounted SSD 4 s after it enumerated, I/O errors). Keep the 5 V until
+	# OFF_PASSES readings in a row say so. A PD charger (state 21) is certain:
+	# off at once. While the 5 V is held, the charger steps below do not run.
+	if [ "$st" -ne 21 ] && [ "$(cut -d' ' -f1 "/run/gbgo-usbc-5v-$line" 2>/dev/null)" = 1 ]; then
+		eval "n=\$(( \${off_$line:-0} + 1 )); off_$line=\$n"
+		if [ "$n" -lt "$OFF_PASSES" ]; then log "i2c-$b: no device reading $n of $OFF_PASSES (state $st, flags $f3), 5 V kept"; return; fi
+	fi
+	eval "off_$line=0"
 	src5v "$line" 0
 	# charger without USB PD (plain 5 V): attached, we are the sink, PD never
 	# reaches SNK_Ready (state 29 error recovery seen). Close the switch anyway:
 	# the BQ25710 accepts 5 V (AC_STAT seen with 4.67 V).
 	if [ $((f3 & 3)) -eq 1 ] && [ "$st" -ne 21 ]; then
+		# Every attach passes through this reading for a pass before it settles
+		# as a device or a PD charger (7 of 7 attaches on 2026-11-27). Act only
+		# when it has lasted NOPD_PASSES readings in a row.
+		eval "n=\$(( \${nopd_$line:-0} + 1 )); nopd_$line=\$n"
+		if [ "$n" -lt "$NOPD_PASSES" ]; then [ "$V" = once ] && log "i2c-$b: attached, not settled (state $st), reading $n of $NOPD_PASSES"; return 0; fi
 		CHG=1; CHG_MV=5000
 		cmd "$b" 0x03 0x92; set -- $(rd "$b" 0x0014 4)
 		if [ "$(( ${2:-0} ))" -ne 1 ]; then
@@ -123,7 +143,8 @@ port() {
 		elif [ "$V" = once ]; then log "i2c-$b: charger without USB PD, 5 V, consumer switch on"; fi
 		return
 	fi
-	if [ "$st" -ne 21 ]; then [ "$V" = once ] && log "i2c-$b: PD state $st (no charger)"; return; fi
+	eval "nopd_$line=0"
+	if [ "$st" -ne 21 ]; then [ "$V" = once ] && log "i2c-$b: PD state $st (no charger)"; return 0; fi
 
 	# best source PDO not above the highest voltage our sink capabilities allow
 	snk=$(rd "$b" 0x0220 32); max=0
