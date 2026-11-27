@@ -88,7 +88,7 @@ Windows used red/orange (charging) and green (full) plus low-battery/error state
 
 Measured on the Wi-Fi model (NP340XLA), mainline `7.4.0-rc4`.
 
-- The USB 3 lanes of the right port go through a Parade PS8743 at `0x10` on `i2c@884000` (DSDT `I2C2`). The device tree leaves that bus disabled; [scripts/gbgo-dtb-patch](scripts/gbgo-dtb-patch) enables it with `GBGO_I2C2=1`. ID registers `0xf1..0xf3` read `0x0b 0x41 0x87`, the values in the ChromeOS EC driver (`driver/usb_mux/ps8743.h`).
+- The USB 3 lanes of the right port go through a Parade PS8743 at `0x10` on `i2c@884000` (DSDT `I2C2`). The device tree leaves that bus disabled; [scripts/gbgo-dtb-patch](scripts/gbgo-dtb-patch) enables it. ID registers `0xf1..0xf3` read `0x0b 0x41 0x87`, the values in the ChromeOS EC driver (`driver/usb_mux/ps8743.h`).
 - The chip's enable pin is **TLMM GPIO 67**. It is the only pin that differs between a boot with a device on the port (output, high) and a boot with the port empty (input, low). Driving it low makes `0x10` stop answering and a connected SSD drop to 480 Mb/s; driving it high brings the chip back with default registers.
 - The firmware raises the pin and sets the registers only when a device is on the port at boot:
 
@@ -103,7 +103,9 @@ Measured on the Wi-Fi model (NP340XLA), mainline `7.4.0-rc4`.
 - `0x42..0x44` read `0x11 0xd0 0xd0` with a SuperSpeed link up and `0x42 0x00 0x80` without, and do not take writes.
 - With the chip on, replugs need no further writes: 4 of 4 were SuperSpeed (same orientation, flipped, and after the 5 V had dropped), with the registers byte-identical each time.
 - `gbgo-usbc-power` now does this itself (`mux`): when the bus exists and the mode register does not read `0xba`, it holds TLMM 67 high and writes the five values. Tested by switching the chip off and restarting the service: `PS8743 (USB 3 switch, right port): enabled, mode 0xba`, registers match the firmware's. By hand (pin, five writes, replug): `usb 2-1: new SuperSpeed USB device`, 5000 Mb/s.
-- **Untested:** the service after a boot with the port empty; the chip's power draw when it stays on with nothing attached (the firmware leaves it off then); the LTE/5G model.
+- After a boot with the port empty (13:22): the service logged `PS8743 (USB 3 switch, right port): enabled, mode 0xba` at start, and the SSD plugged in 85 s later came up as `usb 2-1: new SuperSpeed USB device number 2`, 5000 Mb/s.
+- `gbgo-dtb-patch` enables the bus by default since 2026-11-27 (`GBGO_I2C2=0` leaves it disabled); the default DTB is `809d87fa6e4e2a55…`, one line from the previous `5c08a26797f4c591…`.
+- **Untested:** the chip's power draw when it stays on with nothing attached (the firmware leaves it off then); the LTE/5G model.
 
 ## Open
 

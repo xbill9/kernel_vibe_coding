@@ -51,7 +51,7 @@
 #     RTCInfo variable instead of reading 1970. Needs a kernel whose qseecom
 #     allowlist has samsung,galaxy-book-go (efivars through uefisecapp); on
 #     any other kernel the driver waits for efivars and no RTC appears.
-# 10. I2C bus 884000 (opt-in, GBGO_I2C2=1; test, 2026-11-27): DSDT I2C2
+# 10. I2C bus 884000 (on by default since 2026-11-27; GBGO_I2C2=0 leaves it disabled): DSDT I2C2
 #     (Memory32Fixed 0x00884000). EMEC lists a device at 0x10 on it, taken to
 #     be the right USB-C port's PS8743B switch (USB 3 works there only for a
 #     device connected at boot). The firmware leaves TLMM 0/1 on the qup01
@@ -73,7 +73,7 @@ LPGPH=$(printf '0x%x' $(( $(grep -o 'phandle = <0x[0-9a-f]*>' "$T/in.dts" | sed 
 BL=${GBGO_BACKLIGHT:-1}
 LED=${GBGO_LED:-0}
 RTC=${GBGO_RTC:-0}
-I2C2=${GBGO_I2C2:-0}
+I2C2=${GBGO_I2C2:-1}
 awk -v t="$TLMM" -v lpgph="$LPGPH" -v bl="$BL" -v led="$LED" -v birq="$BIRQ" -v rtc="$RTC" -v i2c2="$I2C2" '
   # 3. lid switch: a new top-level node, just before the root node closes
   #    (dtc wants a node'"'"'s properties before its subnodes)
@@ -135,7 +135,7 @@ awk -v t="$TLMM" -v lpgph="$LPGPH" -v bl="$BL" -v led="$LED" -v birq="$BIRQ" -v 
   /rtc@6000 \{/ {rtcn=1}
   rtc == 1 && rtcn && /status = "disabled";/ { sub("\"disabled\"", "\"okay\""); print; ind=$0; sub(/[^\t].*$/, "", ind); print ind "qcom,uefi-rtc-info;"; rtcn=0; next }
   rtcn && /^\t*\};/ {rtcn=0}
-  # 10. I2C bus 884000, DSDT I2C2 (GBGO_I2C2=1)
+  # 10. I2C bus 884000, DSDT I2C2 (default; GBGO_I2C2=0 leaves it disabled)
   /^\t*i2c@884000 \{/ {i2n=1}
   i2c2 == 1 && i2n && /status = "disabled";/ { sub("\"disabled\"", "\"okay\""); i2n=0 }
   i2n && /^\t*\};/ {i2n=0}
@@ -152,7 +152,7 @@ diff -u "$T/in.dts" "$T/out.dts" || true
 # plus +15 for the charge LED nodes with GBGO_LED=1 (and +1 -1 lpg status if the
 # backlight is off),
 # plus +2 -1 for the RTC (status, qcom,uefi-rtc-info) with GBGO_RTC=1,
-# plus +1 -1 for the bus status with GBGO_I2C2=1
+# plus +1 -1 for the bus status unless GBGO_I2C2=0
 add=$(diff "$T/in.dts" "$T/out.dts" | grep -c '^>' || true)
 del=$(diff "$T/in.dts" "$T/out.dts" | grep -c '^<' || true)
 want_add=25; want_del=7; [ "$BL" = 1 ] && want_add=32 && want_del=8
