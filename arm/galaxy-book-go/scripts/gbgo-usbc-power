@@ -97,7 +97,12 @@ src5v() {
 
 port() {
 	b=$1; line=$2
-	set -- $(rd "$b" 0x0020 4); st=$(( ${1:-0} )); f3=$(( ${4:-0} ))
+	set -- $(rd "$b" 0x0020 4)
+	# No answer from the PD controller (a first read after idle can be NAKed):
+	# leave everything as it is. Treating it as "nothing attached" would switch
+	# off the 5 V a plugged-in device is running on.
+	[ $# -eq 4 ] || { [ "$V" = once ] && log "i2c-$b: PD controller did not answer, port left as it is"; return 0; }
+	st=$(( ${1:-0} )); f3=$(( ${4:-0} ))
 	# device attached that we power: ATTACH_DONE (bit 0) and IS_SOURCE (bit 1)
 	if [ $((f3 & 3)) -eq 3 ] && [ "$st" -lt 15 ]; then src5v "$line" 1; [ "$V" = once ] && log "i2c-$b: device attached, 5 V on"; return; fi
 	src5v "$line" 0

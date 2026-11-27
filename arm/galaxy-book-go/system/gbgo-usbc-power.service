@@ -3,8 +3,8 @@ Description=Galaxy Book Go: USB-C chargers and devices plugged in after boot
 After=systemd-modules-load.service
 
 [Service]
-ExecStartPre=/sbin/modprobe i2c-dev
-ExecStartPre=/sbin/modprobe ledtrig-timer
+ExecStartPre=-/sbin/modprobe i2c-dev
+ExecStartPre=-/sbin/modprobe ledtrig-timer
 ExecStart=/usr/local/sbin/gbgo-usbc-power
 Restart=on-failure
 RestartSec=5
