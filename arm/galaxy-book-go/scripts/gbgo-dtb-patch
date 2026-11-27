@@ -46,6 +46,17 @@
 #     (labels gbgo:red/green/blue, no default trigger) to the LPG node and enables
 #     the LPG even with GBGO_BACKLIGHT=0. gbgo-usbc-power drives them; for DT-only
 #     use, add linux,default-trigger = "sbs-4-000b-charging" / "sbs-4-000b-full".
+#  9. RTC (opt-in, GBGO_RTC=1; test, 2026-11-20): rtc@6000 on, with
+#     qcom,uefi-rtc-info, so rtc-pm8xxx takes the offset from the firmware's
+#     RTCInfo variable instead of reading 1970. Needs a kernel whose qseecom
+#     allowlist has samsung,galaxy-book-go (efivars through uefisecapp); on
+#     any other kernel the driver waits for efivars and no RTC appears.
+# 10. I2C bus 884000 (opt-in, GBGO_I2C2=1; test, 2026-11-27): DSDT I2C2
+#     (Memory32Fixed 0x00884000). EMEC lists a device at 0x10 on it, taken to
+#     be the right USB-C port's PS8743B switch (USB 3 works there only for a
+#     device connected at boot). The firmware leaves TLMM 0/1 on the qup01
+#     function with pull-ups; no Linux node claims them. Only the bus is
+#     enabled, with no child node, for i2c-dev access.
 set -e
 IN=$1; OUT=$2
 [ -f "$IN" ] && [ -n "$OUT" ] || { sed -n '2,3p' "$0"; exit 1; }
@@ -61,7 +72,9 @@ TLMM=$(awk '/pinctrl@3500000 \{/{f=1} f&&/phandle = </{gsub(/.*<|>.*/,""); print
 LPGPH=$(printf '0x%x' $(( $(grep -o 'phandle = <0x[0-9a-f]*>' "$T/in.dts" | sed 's/.*<\(0x[0-9a-f]*\)>/\1/' | sort -u | while read -r h; do printf '%d\n' "$h"; done | sort -n | tail -1) + 1 )))
 BL=${GBGO_BACKLIGHT:-1}
 LED=${GBGO_LED:-0}
-awk -v t="$TLMM" -v lpgph="$LPGPH" -v bl="$BL" -v led="$LED" -v birq="$BIRQ" '
+RTC=${GBGO_RTC:-0}
+I2C2=${GBGO_I2C2:-0}
+awk -v t="$TLMM" -v lpgph="$LPGPH" -v bl="$BL" -v led="$LED" -v birq="$BIRQ" -v rtc="$RTC" -v i2c2="$I2C2" '
   # 3. lid switch: a new top-level node, just before the root node closes
   #    (dtc wants a node'"'"'s properties before its subnodes)
   /^\};$/ && !lid { lid=1
@@ -118,6 +131,14 @@ awk -v t="$TLMM" -v lpgph="$LPGPH" -v bl="$BL" -v led="$LED" -v birq="$BIRQ" '
   br && /pinctrl-0 = </ { sub(" " birq " ", " "); sub("<" birq " ", "<"); sub(" " birq ">", ">") }
   br && /^\t*(aux-bus|ports) \{/ {br=0}
   br && /^\t*\};/ {br=0}
+  # 9. RTC with the offset kept by the firmware (GBGO_RTC=1)
+  /rtc@6000 \{/ {rtcn=1}
+  rtc == 1 && rtcn && /status = "disabled";/ { sub("\"disabled\"", "\"okay\""); print; ind=$0; sub(/[^\t].*$/, "", ind); print ind "qcom,uefi-rtc-info;"; rtcn=0; next }
+  rtcn && /^\t*\};/ {rtcn=0}
+  # 10. I2C bus 884000, DSDT I2C2 (GBGO_I2C2=1)
+  /^\t*i2c@884000 \{/ {i2n=1}
+  i2c2 == 1 && i2n && /status = "disabled";/ { sub("\"disabled\"", "\"okay\""); i2n=0 }
+  i2n && /^\t*\};/ {i2n=0}
   # 2. power button: drop pon@800 status = "disabled" (resin keeps its own)
   /pon@800 \{/ {pon=1}
   pon && /^\t*(pwrkey|resin) \{/ {pon=0}
@@ -129,7 +150,9 @@ diff -u "$T/in.dts" "$T/out.dts" || true
 # -7 (3 keyboard, pon status, 3 bridge),
 # plus +7 -1 for the backlight (2 lpg, 5 backlight; lpg status), unless GBGO_BACKLIGHT=0,
 # plus +15 for the charge LED nodes with GBGO_LED=1 (and +1 -1 lpg status if the
-# backlight is off)
+# backlight is off),
+# plus +2 -1 for the RTC (status, qcom,uefi-rtc-info) with GBGO_RTC=1,
+# plus +1 -1 for the bus status with GBGO_I2C2=1
 add=$(diff "$T/in.dts" "$T/out.dts" | grep -c '^>' || true)
 del=$(diff "$T/in.dts" "$T/out.dts" | grep -c '^<' || true)
 want_add=25; want_del=7; [ "$BL" = 1 ] && want_add=32 && want_del=8
@@ -137,6 +160,8 @@ if [ "$LED" = 1 ]; then
 	want_add=$((want_add + 15))
 	[ "$BL" = 1 ] || { want_add=$((want_add + 1)); want_del=$((want_del + 1)); }
 fi
+[ "$RTC" = 1 ] && want_add=$((want_add + 2)) && want_del=$((want_del + 1))
+[ "$I2C2" = 1 ] && want_add=$((want_add + 1)) && want_del=$((want_del + 1))
 [ "$add" = "$want_add" ] && [ "$del" = "$want_del" ] || { echo "unexpected diff: +$add -$del (want +$want_add -$want_del)" >&2; exit 1; }
 dtc -q -I dts -O dtb -o "$OUT" "$T/out.dts"
 echo "wrote $OUT"
